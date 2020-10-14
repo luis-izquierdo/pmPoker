@@ -177,9 +177,9 @@
 					for (var i = 0; i < message.PlayerCards.length; i++)
 						if (message.PlayerCards[i].Player != playerName)
 						{
-							$("#showdown").append($("<strong>").text(message.PlayerCards[i].Player));
+							$("#showdownCards").append($("<strong>").text(message.PlayerCards[i].Player));
 							var cardContainer = $("<div>");
-							$("#showdown").append(cardContainer);
+							$("#showdownCards").append(cardContainer);
 							for (var j = 0; j < message.PlayerCards[i].Cards.length; j++)
 							{
 								cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
