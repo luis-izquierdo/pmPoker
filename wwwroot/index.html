@@ -1,0 +1,267 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>pmPoker</title>
+	<link rel="stylesheet" href="css/all.css">
+    <style>
+		.inTurn { font-weight: bold }
+		.folded { color: lightgray }
+		#messageRibbon {background-color:#080; color:#fff}
+		.red { color: red }
+		.black { color: black }
+		.red, .black {
+			border: solid black 1px;
+			width: 48px;
+			height: 60px;
+			border-radius: 5px;
+			display: inline-block;
+			margin-right: 5px;
+			padding-top: 2px;
+			padding-left: 2px;
+			font-family: serif
+		}
+    </style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+	<script>
+	$(function(){
+		var playerName;
+		var socket;
+
+		$("#butSendPlayerName").click(function(){
+			if ($("#inputPlayerName").val().length > 0)
+			{
+				$("#divPlayerName").hide();
+				$("#divWaitingForGameStart").show();
+		
+				if (!socket || socket.readyState !== WebSocket.OPEN) {
+					alert("socket not connected");
+				}
+				playerName = $("#inputPlayerName").val();
+				console.log("Client->Sender: " + playerName);
+				socket.send(playerName);
+			}
+		});
+		
+		$("#butFold").click(function(){
+			play("fold");
+		});
+		
+		$("#butBet").click(function(){
+			var playDescription = $("#inputBet").val();
+			$("#inputBet").val("");
+			play(playDescription);
+		});
+		
+		function play(playDescription)
+		{
+			$("#playingControls").hide();
+			$("#tablePlayers tr").removeClass("inTurn");
+
+			if (!socket || socket.readyState !== WebSocket.OPEN) {
+				alert("socket not connected");
+			}
+			console.log("Client->Sender: " + playDescription);
+			socket.send(playDescription);
+		}
+		
+		function showMessage(message)
+		{
+			$("#messageRibbon").text(message).show();
+			setTimeout(function(){ $("#messageRibbon").hide(); }, 5000);
+		}
+		
+		function renderCard(card)
+		{
+			var suit = card.Suit;
+			suit = suit.substr(0, suit.length - 1);	// drop the final "s"
+			var colors = {spade:"black", club:"black", heart:"red", diamond:"red"};
+			return $("<div>")
+				.addClass(colors[suit])
+				.append($("<span>").text(card.Rank))
+				.append($("<i>").addClass("fas").addClass("fa-" + suit));
+		}
+	
+		console.log("Connecting...");
+		var scheme = document.location.protocol === "https:" ? "wss" : "ws";
+        var port = document.location.port ? (":" + document.location.port) : "";
+		socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
+		socket.onopen = function (event) {
+			console.log("Connection opened");
+		};
+		socket.onclose = function (event) {
+			console.log("Connection closed. Code: " + event.code + ". Reason: " + event.reason);
+		};
+		//socket.onerror = ...;		// TODO
+		socket.onmessage = function (event) {
+			console.log("Server->Client: " + event.data);
+			var message = JSON.parse(event.data);
+			switch (message.MessageType)
+			{
+				case "GameStarts": 
+					$("#divWaitingForGameStart").hide();
+					$("#divGame").show();
+					for (var i = 0; i < message.Players.length; i++)
+					{
+						var tr = $("<tr>");
+						tr.append($("<td>").text(message.Players[i]));
+						tr.append($("<td>").text("0"));
+						tr.append($("<td>").text(message.Chips));
+						tr.append($("<td>"));	// dealer cell
+						tr.data("playerName", message.Players[i]);
+						$("#tablePlayers").append(tr);
+					}
+					break;
+				case "RoundStarts": 
+					$("#tablePlayers tr").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Dealer)
+						{
+							$(this).find("td:nth-child(4)").text("D");
+						}
+						else
+						{
+							$(this).find("td:nth-child(4)").text("");
+						}
+						$(this).removeClass("inTurn");
+						$(this).removeClass("folded");
+						$(this).find("td:nth-child(2)").text("0");
+					});
+					$("#playerCards").empty();
+					$("#communityCards").empty();
+					$("#showdown").hide();
+					break;
+				case "YourCards": 
+					for (var i = 0; i < message.Cards.length; i++)
+					{
+						$("#playerCards").append(renderCard(message.Cards[i]));
+					}
+					break;
+				case "WaitingForPlay": 
+					$("#tablePlayers tr").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							$(this).addClass("inTurn");
+						}
+					});
+					if (message.Player == playerName)
+					{
+						$("#playingControls").show();
+					}
+					break;
+				case "PlayerPlayed": 
+					$("#tablePlayers tr").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							if (message.PlayType == "Fold")
+							{
+								$(this).addClass("folded");
+							}
+							else
+							{
+								$(this).find("td:nth-child(2)").text(message.PlayerTotalBet);
+								$(this).find("td:nth-child(3)").text(message.PlayerChips);
+							}
+						}
+						$(this).removeClass("inTurn");
+					});
+					break;
+				case "CommunityCardFlipped": 
+					$("#communityCards").append(renderCard(message.Card));
+					break;
+				case "Showdown": 
+					$("#showdownCards").empty();
+					$("#showdown").show();
+					for (var i = 0; i < message.PlayerCards.length; i++)
+						if (message.PlayerCards[i].Player != playerName)
+						{
+							$("#showdown").append($("<strong>").text(message.PlayerCards[i].Player));
+							var cardContainer = $("<div>");
+							$("#showdown").append(cardContainer);
+							for (var j = 0; j < message.PlayerCards[i].Cards.length; j++)
+							{
+								cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
+							}
+						}
+					break;
+				case "RoundWinner": 
+					showMessage(message.Player + " won " + message.Pot);
+					$("#tablePlayers tr").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							$(this).find("td:nth-child(3)").text(message.Chips);
+						}
+						else
+						{
+							for (var i = 0; i < message.Returns.length; i++)
+								if (currentPlayerName == message.Returns[i].Player)
+								{
+									$(this).find("td:nth-child(3)").text(message.Returns[i].Chips);
+									break;
+								}
+						}
+					});
+					break;
+				case "GameWinner": 
+					showMessage("Game over. The winner is " + message.Player);
+					break;
+				case "PlayerOut":
+					$("#tablePlayers tr").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							$(this).remove();
+						}
+					});
+					break;
+			}
+		};
+	});
+	</script>
+
+</head>
+<body>
+	<div id="divPlayerName">
+		Your name:
+		<input id="inputPlayerName" />
+		<button id="butSendPlayerName">OK</button>
+	</div>
+	
+	<div id="divWaitingForGameStart" style="display:none">Waiting for admin to start the game...</div>
+	
+	<div id="divGame" style="display:none">
+		<table id="tablePlayers">
+			<tr>
+				<th>Player</th>
+				<th>Bet</th>
+				<th>Chips</th>
+				<th></th>
+			</tr>
+		</table>
+	
+		<h3>Community Cards</h3>
+		<div id="communityCards">
+		</div>
+		
+		<h3>Player Cards</h3>
+		<div id="playerCards">
+		</div>
+		
+		<div id="playingControls" style="display:none">
+			<div><button id="butFold">Fold</button></div>
+			<div>Bet <input id="inputBet" /><button id="butBet">Bet</button></div>
+		</div>
+		
+		<div id="showdown" style="display:none">
+			<h3>Showdown</h3>
+			<div id="showdownCards">
+			</div>
+		</div>
+		
+		<div id="messageRibbon" style="display:none"></div>
+	</div>
+</body>
+</html>

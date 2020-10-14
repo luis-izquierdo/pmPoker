@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>pmPoker Admin Interface</title>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+		<script>
+		$(function(){
+			setInterval(function(){
+				$.get("api/admin/connections").done(function(resp){
+					$("#connectionList").empty();
+					for(var i = 0; i < resp.length; i++)
+					{
+						$("#connectionList").append($("<li>").text(resp[i]));
+					}
+				});
+			}, 2000);
+			
+			$("#butStartGame").click(function(){
+				$.ajax({url:"api/admin/startGame", type:"post"});
+			});
+		});
+		</script>
+	</head>
+	<body>
+		<h2>Connections</h2>
+		<ul id="connectionList"></ul>
+		<button id="butStartGame">Start game</button>
+	</body>
+</html>
