@@ -8,6 +8,11 @@ namespace pmPoker
 {
     class PokerEngine
     {
+        private readonly SnapCall.Evaluator evaluator;
+        public PokerEngine()
+        {
+            evaluator = new SnapCall.Evaluator("handStrength.dat");
+        }
         public async Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, string[] playerIDs, int initChips, Func<Tuple<int,int>> getBlindBetAmounts)
         {
             if (playerIDs.Length < 3)
@@ -269,10 +274,26 @@ namespace pmPoker
 
         private int Evaluate(PlayingCard[] playerCards, List<PlayingCard> communityCards)
         {
-            // TODO: temporary dummy implementation
-            var card1Value = playerCards[0].Rank * 4 + playerCards[0].Suit;
-            var card2Value = playerCards[1].Rank * 4 + playerCards[1].Suit;
-            return Math.Max(card1Value, card2Value);
+            var evaluation = -1;
+            var allCards = playerCards.Concat(communityCards).ToArray();    // all 7 cards
+            // exclude 2 cards out of 7 in all possible ways
+            for (var i = 0; i < allCards.Length - 1; i++)
+                for(var j = i + 1; j < allCards.Length; j++)
+                {
+                    // consider the 5 cards that are neither at index i nor j
+                    var selectedCards = Enumerable.Range(0, 7)
+                        .Where(n => n != i && n != j)
+                        .Select(n => allCards[n])
+                        .ToArray();
+                    var handBitmap = PlayingCard.HandToBitmap(selectedCards);
+                    var handEvaluation = evaluator.Evaluate(handBitmap);
+                    // TODO: replace WriteLine by proper logging
+                    Console.WriteLine(
+                        string.Join("|", selectedCards.Select(c => $"{c.RankName}-{c.SuitName}"))
+                            + $" -> {handEvaluation}");
+                    evaluation = Math.Max(evaluation, handEvaluation);
+                }
+            return evaluation;
         }
 
         class PlayerInfo

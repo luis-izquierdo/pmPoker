@@ -6,6 +6,10 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="protobuf-net" Version="3.0.52" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="handStrength.dat" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 
