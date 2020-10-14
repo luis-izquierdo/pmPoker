@@ -304,7 +304,7 @@ namespace pmPoker
 	
     class PlayingCard
     {
-        public int Rank { get; set; }   // 1 = A, 11 = J, 12 = Q, 13 = K
+        public int Rank { get; set; }   // 11 = J, 12 = Q, 13 = K, 14 = A
         public int Suit { get; set; }   // 0 to 3
 		public string RankName
 		{
