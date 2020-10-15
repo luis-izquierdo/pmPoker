@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -32,9 +33,18 @@ namespace pmPoker.Controllers
 			var randomizerSeed = new Random().Next();
 			var t = Task.Run(() => pokerEngine.RunGame(randomizerSeed, _wsPokerInterface, _wsPokerInterface.GetConnectedPlayers(), 
 				100,	// initial chips per player
-				() => Tuple.Create(5, 10)	// constant small and big blind bets
+				() => Tuple.Create(5, 10),	// constant small and big blind bets
+				_wsPokerInterface.GetEngineCancellationToken()
 			));
 			return "OK";
 		}
+
+		[HttpPost]
+		public string Reset()
+		{
+			_wsPokerInterface.Reset();
+			return "OK";
+		}
+
     }
 }
