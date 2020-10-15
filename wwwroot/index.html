@@ -148,6 +148,9 @@
 					if (message.Player == playerName)
 					{
 						$("#playingControls").show();
+						$("#inputBet").prop("min", message.Call)
+							.prop("max", message.AllIn)
+							.val(message.Call);
 					}
 					break;
 				case "PlayerPlayed": 
@@ -252,7 +255,7 @@
 		
 		<div id="playingControls" style="display:none">
 			<div><button id="butFold">Fold</button></div>
-			<div>Bet <input id="inputBet" /><button id="butBet">Bet</button></div>
+			<div>Bet <input id="inputBet" type="number"/><button id="butBet">Bet</button></div>
 		</div>
 		
 		<div id="showdown" style="display:none">
