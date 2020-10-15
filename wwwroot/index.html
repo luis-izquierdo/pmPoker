@@ -21,6 +21,7 @@
 			padding-left: 2px;
 			font-family: serif
 		}
+		.playerShowdownEntry.winner {border:solid black 2px}
     </style>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 	<script>
@@ -51,6 +52,12 @@
 			var playDescription = $("#inputBet").val();
 			$("#inputBet").val("");
 			play(playDescription);
+		});
+
+		$("#butCloseShowdown").click(function(){
+			$("#showdown").hide();
+			$("#showdownCards").empty();
+			$("#divGame").show();
 		});
 		
 		function play(playDescription)
@@ -129,7 +136,6 @@
 					});
 					$("#playerCards").empty();
 					$("#communityCards").empty();
-					$("#showdown").hide();
 					break;
 				case "YourCards": 
 					for (var i = 0; i < message.Cards.length; i++)
@@ -175,22 +181,36 @@
 					$("#communityCards").append(renderCard(message.Card));
 					break;
 				case "Showdown": 
-					$("#showdownCards").empty();
+					$("#divGame").hide();
 					$("#showdown").show();
+					// duplicate community cards inside the showdown panel
+					$("#showdownCards").append($("<div>").append($("#communityCards").children().clone()));
+					// now add player cards
 					for (var i = 0; i < message.PlayerCards.length; i++)
-						if (message.PlayerCards[i].Player != playerName)
+					{
+						var cardContainer = $("<div>");
+						for (var j = 0; j < message.PlayerCards[i].Cards.length; j++)
 						{
-							$("#showdownCards").append($("<strong>").text(message.PlayerCards[i].Player));
-							var cardContainer = $("<div>");
-							$("#showdownCards").append(cardContainer);
-							for (var j = 0; j < message.PlayerCards[i].Cards.length; j++)
-							{
-								cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
-							}
+							cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
 						}
+						$("#showdownCards").append(
+							$("<div>")
+								.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
+								.data("playerName", message.PlayerCards[i].Player)
+								.append($("<strong>").text(message.PlayerCards[i].Player))
+								.append(cardContainer)
+						);
+					}
 					break;
 				case "RoundWinner": 
 					showMessage(message.Player + " won " + message.Pot);
+					// in case there was a showdown...
+					$("#showdown .playerShowdownEntry").each(function(){
+						if ($(this).data("playerName") == message.Player)
+						{
+							$(this).addClass("winner");
+						}
+					});
 					$("#tablePlayers tr").each(function(){
 						var currentPlayerName = $(this).data("playerName");
 						if (currentPlayerName == message.Player)
@@ -255,16 +275,15 @@
 		
 		<div id="playingControls" style="display:none">
 			<div><button id="butFold">Fold</button></div>
-			<div>Bet <input id="inputBet" type="number"/><button id="butBet">Bet</button></div>
+			<div><input id="inputBet" type="number"/><button id="butBet">Bet</button></div>
 		</div>
-		
-		<div id="showdown" style="display:none">
-			<h3>Showdown</h3>
-			<div id="showdownCards">
-			</div>
-		</div>
-		
-		<div id="messageRibbon" style="display:none"></div>
 	</div>
+	<div id="showdown" style="display:none">
+		<h3>Showdown</h3>
+		<div id="showdownCards">
+		</div>
+		<button id="butCloseShowdown">Close</button>
+	</div>
+	<div id="messageRibbon" style="display:none"></div>
 </body>
 </html>
