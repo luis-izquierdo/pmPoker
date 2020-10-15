@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace pmPoker
@@ -13,7 +14,9 @@ namespace pmPoker
         {
             evaluator = new SnapCall.Evaluator("handStrength.dat");
         }
-        public async Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, string[] playerIDs, int initChips, Func<Tuple<int,int>> getBlindBetAmounts)
+        public async Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, 
+            string[] playerIDs, int initChips, Func<Tuple<int,int>> getBlindBetAmounts,
+            CancellationToken cancellationToken)
         {
             if (playerIDs.Length < 3)
                 throw new ArgumentOutOfRangeException("Minimum = 3 players");
@@ -122,7 +125,18 @@ namespace pmPoker
 							Call = highestBet - players[currentPlayerIndex].CurrentBet,
 							AllIn = players[currentPlayerIndex].Chips
 						});
-                        var nextPlay = await userInterface.PlayerNextPlay(players[currentPlayerIndex].PlayerID);
+                        if (cancellationToken.IsCancellationRequested)
+                            return;
+                        PokerPlay nextPlay;
+                        try
+                        {
+                            nextPlay = await userInterface.PlayerNextPlay(players[currentPlayerIndex].PlayerID);
+                        }
+                        catch (OperationCanceledException)  // this happens if the admin resets the game
+                        {
+                            // TODO: add logging
+                            return;
+                        }
                         players[currentPlayerIndex].NeedsToPlay = false;
                         if (nextPlay.Type == PokerPlayType.Fold)
                         {

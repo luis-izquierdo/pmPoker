@@ -18,12 +18,16 @@
 			$("#butStartGame").click(function(){
 				$.ajax({url:"api/admin/startGame", type:"post"});
 			});
+			$("#butReset").click(function(){
+				$.ajax({url:"api/admin/reset", type:"post"});
+			});
 		});
 		</script>
 	</head>
 	<body>
 		<h2>Connections</h2>
 		<ul id="connectionList"></ul>
-		<button id="butStartGame">Start game</button>
+		<div><button id="butStartGame">Start game</button></div>
+		<div><button id="butReset">Reset</button></div>
 	</body>
 </html>

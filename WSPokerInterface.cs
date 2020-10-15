@@ -21,12 +21,22 @@ namespace pmPoker
 	{
 		string[] GetConnectedPlayers();
 		Task ConsumeMessages(WebSocket webSocket);
+		void Reset();
+		CancellationToken GetEngineCancellationToken();
 	}
 	
     public class WSPokerInterface: IWSPokerInterface
     {
 		readonly Dictionary<string, WebSocket> connectedSockets = new Dictionary<string, WebSocket>();
 		readonly StringEnumConverter converter = new StringEnumConverter();
+		// TODO: analyze thread-safety of the following
+		private TaskCompletionSource<PokerPlay> tcs;
+		private string expectingPlayFrom;
+		private CancellationTokenSource engineCancellationTokenSource;
+		public WSPokerInterface()
+		{
+			engineCancellationTokenSource = new CancellationTokenSource();
+		}
 		private void RegisterSocket(string userName, WebSocket socket)
 		{
 			lock (this)
@@ -75,39 +85,62 @@ namespace pmPoker
 		
 		public async Task ConsumeMessages(WebSocket webSocket)
         {
-            var buffer = new byte[1024 * 4];
-            WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-			var userName = Encoding.UTF8.GetString(buffer, 0, result.Count);
-			RegisterSocket(userName, webSocket);
-            while (!result.CloseStatus.HasValue)
-            {
-                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-				if (result.CloseStatus.HasValue)
+			string userName = null;
+			try
+			{
+				var buffer = new byte[1024 * 4];
+				WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
+				userName = Encoding.UTF8.GetString(buffer, 0, result.Count);
+				RegisterSocket(userName, webSocket);
+				while (!result.CloseStatus.HasValue)
 				{
-					break;
+					result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
+					if (result.CloseStatus.HasValue)
+					{
+						break;
+					}
+					if (expectingPlayFrom == userName)
+					{
+						var play = Encoding.UTF8.GetString(buffer, 0, result.Count);
+						if (play == "fold")
+							tcs.SetResult(new PokerPlay { Type = PokerPlayType.Fold });
+						else
+							tcs.SetResult(new PokerPlay { Type = PokerPlayType.Bet, BetAmount = int.Parse(play) });
+					}
 				}
-				if (expectingPlayFrom == userName)
-				{
-					var play = Encoding.UTF8.GetString(buffer, 0, result.Count);
-					if (play == "fold")
-						tcs.SetResult(new PokerPlay { Type = PokerPlayType.Fold });
-					else
-						tcs.SetResult(new PokerPlay { Type = PokerPlayType.Bet, BetAmount = int.Parse(play) });
-				}
-            }
-            await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
-			UnregisterSocket(userName);
+				if (webSocket.State != WebSocketState.Closed)
+					await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, engineCancellationTokenSource.Token);
+			}
+			catch (OperationCanceledException)
+			{
+				return;
+			}
+			finally
+			{
+				if (userName != null)
+					UnregisterSocket(userName);
+			}
         }
-		
-		// TODO: analyze thread-safety of the following
-		private TaskCompletionSource<PokerPlay> tcs;
-		private string expectingPlayFrom;
 		
 		public Task<PokerPlay> PlayerNextPlay(string playerID)
 		{
 			expectingPlayFrom = playerID;
 			tcs = new TaskCompletionSource<PokerPlay>();
 			return tcs.Task;
+		}
+
+		public void Reset()
+		{
+			foreach (var s in connectedSockets.Values)
+				s.CloseAsync(WebSocketCloseStatus.NormalClosure, "App reset by admin.", CancellationToken.None);
+			if (tcs != null)
+				tcs.TrySetCanceled();
+			engineCancellationTokenSource.Cancel();
+			engineCancellationTokenSource = new CancellationTokenSource();
+		}
+		public CancellationToken GetEngineCancellationToken()
+		{
+			return engineCancellationTokenSource.Token;
 		}
     }
 }
