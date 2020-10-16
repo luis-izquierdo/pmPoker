@@ -15,7 +15,7 @@ namespace pmPoker
             evaluator = new SnapCall.Evaluator("handStrength.dat");
         }
         public async Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, 
-            string[] playerIDs, int initChips, Func<Tuple<int,int>> getBlindBetAmounts,
+            string[] playerIDs, int initChips, Func<int, Tuple<int,int>> getBlindBetAmounts,
             CancellationToken cancellationToken)
         {
             if (playerIDs.Length < 3)
@@ -29,7 +29,8 @@ namespace pmPoker
             var players = playerIDs.Select(p => new PlayerInfo { PlayerID = p, Chips = initChips }).ToList();
             var random = new Random(cardShufflingRandomSeed);
             var dealerIndex = -1;
-            while (players.Count > 1)
+            
+            for (var round = 0; players.Count > 1; round++)
             {
                 foreach (var p in players)
 				{
@@ -60,7 +61,7 @@ namespace pmPoker
                 var pot = 0;
                 var smallBlindIndex = NextPlayerIndex(dealerIndex, players);
                 var bigBlindIndex = NextPlayerIndex(smallBlindIndex, players);
-                var t = getBlindBetAmounts();
+                var t = getBlindBetAmounts(round);
                 var smallBlind = t.Item1;
                 var bigBlind = t.Item2;
                 // TODO: what if the small and/or big blind players don't have enough money for the blind bet?

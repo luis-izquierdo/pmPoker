@@ -7,9 +7,26 @@
 	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
 	<link rel="stylesheet" href="css/all.css">
     <style>
-		.inTurn { font-weight: bold }
+		body { 
+			background-color: rgb(14, 118, 93);
+			color: white;
+			padding-left:0.5em;
+		}
+		table
+		{
+			background-color: rgb(10, 85, 60);
+		}
+		td, th
+		{
+			padding-right: 1.5em;
+		}
+		.inTurn { 
+			font-weight: bold;
+			background-color: rgba(0,0,0,0.3);
+
+		}
 		.folded { color: lightgray }
-		#messageRibbon {background-color:#080; color:#fff}
+		#messageRibbon {background-color:darkblue;}
 		.red { color: red }
 		.black { color: black }
 		.red, .black {
@@ -21,8 +38,11 @@
 			margin-right: 0.5em;
 			padding-top: 0.2em;
 			padding-left: 0.2em;
+			background-color: white;
 		}
-		.playerShowdownEntry.winner {border:solid black 2px}
+		.playerShowdownEntry.winner {
+			background-color: rgba(0,0,0,0.3);
+		}
     </style>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 	<script>
@@ -63,7 +83,6 @@
 		
 		function play(playDescription)
 		{
-			$("#playingControls").hide();
 			$("#tablePlayers tr").removeClass("inTurn");
 
 			if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -161,6 +180,7 @@
 					}
 					break;
 				case "PlayerPlayed": 
+					$("#playingControls").hide();
 					$("#tablePlayers tr").each(function(){
 						var currentPlayerName = $(this).data("playerName");
 						if (currentPlayerName == message.Player)
@@ -183,6 +203,7 @@
 					break;
 				case "Showdown": 
 					$("#divGame").hide();
+					$("#showdownCards").empty();
 					$("#showdown").show();
 					// duplicate community cards inside the showdown panel
 					$("#showdownCards").append($("<div>").append($("#communityCards").children().clone()));
@@ -266,21 +287,22 @@
 			</tr>
 		</table>
 	
-		<h3>Community Cards</h3>
+		<strong>Community Cards</strong>
 		<div id="communityCards">
 		</div>
 		
-		<h3>Player Cards</h3>
+		<strong>Player Cards</strong>
 		<div id="playerCards">
 		</div>
 		
 		<div id="playingControls" style="display:none">
-			<div><button id="butFold">Fold</button></div>
-			<div><input id="inputBet" type="number"/><button id="butBet">Bet</button></div>
+			<button id="butFold">Fold</button>
+			<input id="inputBet" type="number"/>
+			<button id="butBet">Bet</button>
 		</div>
 	</div>
 	<div id="showdown" style="display:none">
-		<h3>Showdown</h3>
+		<strong>Showdown</strong>
 		<div id="showdownCards">
 		</div>
 		<button id="butCloseShowdown">Close</button>
