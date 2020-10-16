@@ -33,9 +33,12 @@ namespace pmPoker
 		private TaskCompletionSource<PokerPlay> tcs;
 		private string expectingPlayFrom;
 		private CancellationTokenSource engineCancellationTokenSource;
+		private bool gameStarted;
+		private List<Tuple<string, byte[]>> messageLog;
 		public WSPokerInterface()
 		{
 			engineCancellationTokenSource = new CancellationTokenSource();
+			messageLog = new List<Tuple<string, byte[]>>();
 		}
 		private void RegisterSocket(string userName, WebSocket socket)
 		{
@@ -55,12 +58,14 @@ namespace pmPoker
 		{
 			lock (this)
 			{
-				var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message, converter));
+				gameStarted = true;
+				var messageBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message, converter));
+				messageLog.Add(Tuple.Create((string)null, messageBytes));
 				foreach (var webSocket in connectedSockets.Values)
 				{
 					try
 					{
-						var t = webSocket.SendAsync(new ArraySegment<byte>(buffer, 0, buffer.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+						var t = webSocket.SendAsync(new ArraySegment<byte>(messageBytes, 0, messageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
 					}
 					catch (Exception) {}
 				}
@@ -70,12 +75,14 @@ namespace pmPoker
 		{
 			lock (this)
 			{
+				gameStarted = true;
+				var messageBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message, converter));
+				messageLog.Add(Tuple.Create(userName, messageBytes));
 				try
 				{
-					var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message, converter));
-					connectedSockets[userName].SendAsync(new ArraySegment<byte>(buffer, 0, buffer.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+					connectedSockets[userName].SendAsync(new ArraySegment<byte>(messageBytes, 0, messageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
 				}
-				catch (Exception) {}
+				catch (Exception) {}	// TODO: logging
 			}
 		}
 		public string[] GetConnectedPlayers()
@@ -92,6 +99,20 @@ namespace pmPoker
 				WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
 				userName = Encoding.UTF8.GetString(buffer, 0, result.Count);
 				RegisterSocket(userName, webSocket);
+
+				if (gameStarted)
+				{
+					// send all messages so far so that the UI gets to the current point in the game
+					foreach (var t in messageLog.Where(t => t.Item1 == null || t.Item1 == userName))
+					{
+						try
+						{
+							await connectedSockets[userName].SendAsync(new ArraySegment<byte>(t.Item2, 0, t.Item2.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+						}
+						catch (Exception) {}	// TODO: logging
+					}
+				}
+
 				while (!result.CloseStatus.HasValue)
 				{
 					result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
@@ -111,9 +132,15 @@ namespace pmPoker
 				if (webSocket.State != WebSocketState.Closed)
 					await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, engineCancellationTokenSource.Token);
 			}
+			catch (WebSocketException)
+			{
+				// this happens if a player closes its connection
+				return;	// TODO: logging
+			}
 			catch (OperationCanceledException)
 			{
-				return;
+				// this happens if the game is reset
+				return;	// TODO: logging
 			}
 			finally
 			{
@@ -137,6 +164,8 @@ namespace pmPoker
 				tcs.TrySetCanceled();
 			engineCancellationTokenSource.Cancel();
 			engineCancellationTokenSource = new CancellationTokenSource();
+			messageLog = new List<Tuple<string, byte[]>>();
+			gameStarted = false;
 		}
 		public CancellationToken GetEngineCancellationToken()
 		{
