@@ -209,7 +209,7 @@ namespace pmPoker
                 var playerEvaluations = players
                     .Select(p => new PlayerEvaluation {
                         Player = p, 
-                        Evaluation = p.Folded ? -1 : Evaluate(p.Cards, communityCards)
+                        Evaluation = p.Folded ? -1 : communityCards.Count < 5 ? 1 : Evaluate(p.Cards, communityCards)
                     }).ToArray();
                 // distribute pot money among winners, taking into account possible side pots and ties
                 while (true)
@@ -226,7 +226,7 @@ namespace pmPoker
                     // collect bets up to the smallest bet among tied winners
                     foreach (var e in playerEvaluations)
                     {
-                        var currentPlayerContribution = Math.Max(smallestBetAmongWinners, e.Player.CurrentBet);
+                        var currentPlayerContribution = Math.Min(smallestBetAmongWinners, e.Player.CurrentBet);
                         currentPot += currentPlayerContribution;
                         e.Player.CurrentBet -= currentPlayerContribution;
                         if (e.Player.CurrentBet == 0)
