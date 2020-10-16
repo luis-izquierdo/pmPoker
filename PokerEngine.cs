@@ -188,50 +188,77 @@ namespace pmPoker
                     }
                 }
 
-                PlayerInfo winner;
-                if (playersInRound == 1)
-                {
-                    winner = players.First(p => !p.Folded);
-                }
-                else
+                IEnumerable<PlayerInfo> mainPotWinners = null;
+                if (playersInRound > 1)
                 {
                     // showdown
-					userInterface.Broadcast(new {
-						MessageType = MessageType.Showdown,
-						PlayerCards = players.Where(p => !p.Folded).Select(p => new{
-							Player = p.PlayerID,
-							Cards = new[] { 
-								new { Rank = p.Cards[0].RankName, Suit = p.Cards[0].SuitName}, 
-								new { Rank = p.Cards[1].RankName, Suit = p.Cards[1].SuitName}
-							}
-						}).ToArray()
-					});
-                    winner = players.Where(p => !p.Folded)
-                        .OrderByDescending(p => Evaluate(p.Cards, communityCards))
-                        .First();	// TODO: deal with ties
+                    userInterface.Broadcast(new {
+                        MessageType = MessageType.Showdown,
+                        PlayerCards = players.Where(p => !p.Folded).Select(p => new{
+                            Player = p.PlayerID,
+                            Cards = new[] { 
+                                new { Rank = p.Cards[0].RankName, Suit = p.Cards[0].SuitName}, 
+                                new { Rank = p.Cards[1].RankName, Suit = p.Cards[1].SuitName}
+                            }
+                        }).ToArray()
+                    });
                 }
-
-                // if the winner was all-in, we may need to give back chips to other players who bet more than the winner
-                foreach (var p in players.Where(p => p.CurrentBet > winner.CurrentBet))
+                // the following algorithm is supposed to cover as well the trivial cases
+                // of everybody folding but one player, or a showdown with a single winner
+                // (no tie)
+                var playerEvaluations = players
+                    .Select(p => new PlayerEvaluation {
+                        Player = p, 
+                        Evaluation = p.Folded ? -1 : Evaluate(p.Cards, communityCards)
+                    }).ToArray();
+                // distribute pot money among winners, taking into account possible side pots and ties
+                while (true)
                 {
-                    p.Chips += p.CurrentBet - winner.CurrentBet;
-                    pot -= p.CurrentBet - winner.CurrentBet;
+                    var maxEvaluation = playerEvaluations.Max(e => e.Evaluation);
+                    if (maxEvaluation == -1)
+                        break;  // no players eligible to win anything else, no side pots left to distribute
+                    var winners = playerEvaluations.Where(e => e.Evaluation == maxEvaluation)
+                        .Select(e => e.Player).ToArray();   // Length > 1 means that there is a tie
+                    if (mainPotWinners == null)
+                        mainPotWinners = (PlayerInfo[])winners.Clone(); // these are the ones we'll send to the UI
+                    var smallestBetAmongWinners = winners.Min(w => w.CurrentBet);
+                    var currentPot = 0;
+                    // collect bets up to the smallest bet among tied winners
+                    foreach (var e in playerEvaluations)
+                    {
+                        var currentPlayerContribution = Math.Max(smallestBetAmongWinners, e.Player.CurrentBet);
+                        currentPot += currentPlayerContribution;
+                        e.Player.CurrentBet -= currentPlayerContribution;
+                        if (e.Player.CurrentBet == 0)
+                            e.Evaluation = -1;  // if this player is a winner and there is another winner with a higher bet, 
+                                                // this player is not eligible to win the rest of the pot
+                    }
+                    // split the current pot between the winners
+                    for (int i = 0; i < winners.Length; i++)
+                    {
+                        var portion = currentPot / winners.Length;  // integer division
+                        if (i < currentPot % winners.Length)
+                            portion++;  // in case there is a remainder
+                        winners[i].Chips += portion;
+                    }
                 }
-                winner.Chips += pot;
 
-				var returns = players.Where(p => p.CurrentBet > winner.CurrentBet)
-					.Select(p => new {
-						Player = p.PlayerID, 
-						ReturnedAmount = p.CurrentBet - winner.CurrentBet, 
-						Chips = p.Chips})
-					.ToArray();
-					
+                // It's theoretically possible that a player who folded had a higher
+                // bet than the winner's. In that case at this point we need to return
+                // the bets that weren't collected by any winner
+                foreach (var p in players)
+                {
+                    p.Chips += p.CurrentBet;
+                    p.CurrentBet = 0;   // optional
+                }
+
                 userInterface.Broadcast(new {
-					MessageType = MessageType.RoundWinner,
-					Player = winner.PlayerID,
-					Pot = pot,
-					Chips = winner.Chips,
-					Returns = returns
+					MessageType = MessageType.RoundEnded,
+                    Players = players.Select(p => new {
+                        Player = p.PlayerID,
+                        Chips = p.Chips,
+                        Won = mainPotWinners.Contains(p)
+                    })
 				});
 				await Task.Delay(10000);		// it's nicer for the UI if we wait here for a moment
 
@@ -257,6 +284,12 @@ namespace pmPoker
 			});
         }
 		
+        class PlayerEvaluation
+        {
+            public PlayerInfo Player { get; set; }
+            public int Evaluation { get; set; }
+        }
+    
 		enum MessageType
 		{
 			GameStarts,
@@ -266,7 +299,7 @@ namespace pmPoker
 			PlayerPlayed,
 			CommunityCardFlipped,
 			Showdown,
-			RoundWinner,
+			RoundEnded,
 			GameWinner,
 			PlayerOut
 		}

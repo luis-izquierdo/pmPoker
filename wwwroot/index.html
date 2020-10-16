@@ -224,30 +224,25 @@
 						);
 					}
 					break;
-				case "RoundWinner": 
-					showMessage(message.Player + " won " + message.Pot);
+				case "RoundEnded": 
+					// showMessage(message.Players + " won " + message.Pot);
 					// in case there was a showdown...
 					$("#showdown .playerShowdownEntry").each(function(){
-						if ($(this).data("playerName") == message.Player)
+						for (var i = 0; i < message.Players.length; i++)
 						{
-							$(this).addClass("winner");
+							if ($(this).data("playerName") == message.Players[i].Player && message.Players[i].Won)
+							{
+								$(this).addClass("winner");
+							}
 						}
 					});
 					$("#tablePlayers tr").each(function(){
 						var currentPlayerName = $(this).data("playerName");
-						if (currentPlayerName == message.Player)
-						{
-							$(this).find("td:nth-child(3)").text(message.Chips);
-						}
-						else
-						{
-							for (var i = 0; i < message.Returns.length; i++)
-								if (currentPlayerName == message.Returns[i].Player)
-								{
-									$(this).find("td:nth-child(3)").text(message.Returns[i].Chips);
-									break;
-								}
-						}
+						for (var i = 0; i < message.Players.length; i++)
+							if (currentPlayerName == message.Players[i].Player)
+							{
+								$(this).find("td:nth-child(3)").text(message.Players[i].Chips);
+							}
 					});
 					break;
 				case "GameWinner": 
