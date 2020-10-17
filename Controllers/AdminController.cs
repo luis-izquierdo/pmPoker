@@ -29,7 +29,7 @@ namespace pmPoker.Controllers
 		[HttpPost]
 		public string StartGame()
 		{
-			var pokerEngine = new PokerEngine();
+			var pokerEngine = new PokerEngine(new DustinEvaluator());
 			var randomizerSeed = new Random().Next();
 			var t = Task.Run(() => pokerEngine.RunGame(randomizerSeed, _wsPokerInterface, _wsPokerInterface.GetConnectedPlayers(), 
 				5000,	// initial chips per player

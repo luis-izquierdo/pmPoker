@@ -9,10 +9,10 @@ namespace pmPoker
 {
     class PokerEngine
     {
-        private readonly SnapCall.Evaluator evaluator;
-        public PokerEngine()
+        private readonly IHandEvaluator evaluator;
+        public PokerEngine(IHandEvaluator evaluator)
         {
-            evaluator = new SnapCall.Evaluator("handStrength.dat");
+            this.evaluator = evaluator;
         }
         public async Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, 
             string[] playerIDs, int initChips, Func<int, Tuple<int,int>> getBlindBetAmounts,
@@ -207,7 +207,7 @@ namespace pmPoker
 						}).ToArray()
 					});
                     winner = players.Where(p => !p.Folded)
-                        .OrderByDescending(p => HandEvaluator.Evaluate(p.Cards, communityCards))
+                        .OrderByDescending(p => evaluator.Evaluate(p.Cards, communityCards))
                         .First();	// TODO: deal with ties
                 }
 
@@ -285,30 +285,6 @@ namespace pmPoker
             { playerIndex = (playerIndex + 1) % players.Count; }
             while (players[playerIndex].Folded);
             return playerIndex;
-        }
-
-        private int Evaluate(PlayingCard[] playerCards, List<PlayingCard> communityCards)
-        {
-            var evaluation = -1;
-            var allCards = playerCards.Concat(communityCards).ToArray();    // all 7 cards
-            // exclude 2 cards out of 7 in all possible ways
-            for (var i = 0; i < allCards.Length - 1; i++)
-                for(var j = i + 1; j < allCards.Length; j++)
-                {
-                    // consider the 5 cards that are neither at index i nor j
-                    var selectedCards = Enumerable.Range(0, 7)
-                        .Where(n => n != i && n != j)
-                        .Select(n => allCards[n])
-                        .ToArray();
-                    var handBitmap = PlayingCard.HandToBitmap(selectedCards);
-                    var handEvaluation = evaluator.Evaluate(handBitmap);
-                    // TODO: replace WriteLine by proper logging
-                    Console.WriteLine(
-                        string.Join("|", selectedCards.Select(c => $"{c.RankName}-{c.SuitName}"))
-                            + $" -> {handEvaluation}");
-                    evaluation = Math.Max(evaluation, handEvaluation);
-                }
-            return evaluation;
         }
 
         class PlayerInfo

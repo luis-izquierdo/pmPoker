@@ -2,39 +2,21 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace evalhand
+namespace pmPoker
 {
-    class LuisEvaluator
+    class LuisEvaluator: IHandEvaluator
     {
-        //static void Main(string[] args)
-        //{
-        //	var r = new Random();
-        //	var deck = Enumerable.Range(0, 52).ToList();
-        //	var cards = new PlayingCard[7];
-        //	while (true)
-        //	{
-    	//		for (var i = 0; i < cards.Length; i++)
-    	//		{
-		//			var index = r.Next(deck.Count);
-		//			cards[i] = new PlayingCard { Rank = deck[index] / 4, Suit = deck[index] % 4 };
-		//			deck.RemoveAt(index);
-    	//		}
-    	//		Console.WriteLine(string.Join(" | ", cards.Select(c => $"{c.Rank} {c.Suit}")));
-    	//		var e = EvalBestHand(cards);
-    	//		Console.WriteLine($"{e.HandType} {e.TieBreaker}");
-    	//		for (var i = 0; i < cards.Length; i++)
-    	//		{
-    	//			deck.Add(cards[i].Rank * 4 + cards[i].Suit);
-    	//		}
-        //		Console.ReadLine();
-        //	}
-        //}
-
+		public HandEvaluation Evaluate(PlayingCard[] playerCards, List<PlayingCard> communityCards)
+		{
+			PlayingCard[] sevenCards = playerCards.Concat(communityCards).ToArray();
+			return EvalBestHand(sevenCards);
+		}
         static HandEvaluation EvalBestHand(PlayingCard[] sevenCards)
         {
         	if (sevenCards.Length != 7)
         		throw new ArgumentException("sevenCards");
-        	HandEvaluation bestEvaluation = null;
+        	HandEvaluation bestEvaluation = new HandEvaluation(HandType.HighCard, 0);
+			var firstCandidate = true;
 
         	for (var first = 0; first < 3; first++)
         		for (var second = first + 1; second < 4; second++)
@@ -42,7 +24,6 @@ namespace evalhand
         				for (var fourth = third + 1; fourth < 6; fourth++)
         					for (var fifth = fourth + 1; fifth < 7; fifth++)
         					{
-        						//Console.WriteLine($"{first} {second} {third} {fourth} {fifth}");
         						var hand = new [] {
         							sevenCards[first],
         							sevenCards[second],
@@ -51,8 +32,9 @@ namespace evalhand
         							sevenCards[fifth]
         						};
         						var e = Eval(hand);
-        						if (bestEvaluation == null || e.AbsoluteValue > bestEvaluation.AbsoluteValue)
+        						if (firstCandidate || e.CompareTo(bestEvaluation) > 0)
         							bestEvaluation = e;
+								firstCandidate = false;
         					}
         	return bestEvaluation;
         }
@@ -109,37 +91,37 @@ namespace evalhand
     		}
 
     		HandType handType;
-    		int tieBreaker;
+    		int tiebreaker;
     		if (countPerGroup[4] == 1)
     		{
     			handType = HandType.FourOfAKind;
-    			tieBreaker = rankPerGroup[4][0] * 13 
+    			tiebreaker = rankPerGroup[4][0] * 13 
     						+ rankPerGroup[1][0];
     		}
     		else if (countPerGroup[3] == 1 && countPerGroup[2] == 1)
     		{
     			handType = HandType.FullHouse;
-    			tieBreaker = rankPerGroup[3][0] * 13
+    			tiebreaker = rankPerGroup[3][0] * 13
     						+ rankPerGroup[2][0];
     		}
     		else if (countPerGroup[3] == 1)
     		{
-    			handType = HandType.ThreOfAKind;
-    			tieBreaker = rankPerGroup[3][0] * (13 * 13)
+    			handType = HandType.ThreeOfAKind;
+    			tiebreaker = rankPerGroup[3][0] * (13 * 13)
 							+ rankPerGroup[1][0] * 13
     						+ rankPerGroup[1][1];
     		}
     		else if (countPerGroup[2] == 2)
     		{
     			handType = HandType.TwoPair;
-    			tieBreaker = rankPerGroup[2][0] * (13 * 13)
+    			tiebreaker = rankPerGroup[2][0] * (13 * 13)
 							+ rankPerGroup[2][1] * 13
     						+ rankPerGroup[1][0];
     		}
     		else if (countPerGroup[2] == 1)
     		{
-    			handType = HandType.Pair;
-    			tieBreaker = rankPerGroup[2][0] * (13 * 13 * 13)
+    			handType = HandType.OnePair;
+    			tiebreaker = rankPerGroup[2][0] * (13 * 13 * 13)
 							+ rankPerGroup[1][0] * (13 * 13)
 							+ rankPerGroup[1][1] * 13
     						+ rankPerGroup[1][2];
@@ -150,17 +132,17 @@ namespace evalhand
 				if (suitsFound == 1 && maxRank == 12)
 				{
 					handType = HandType.RoyalFlush;
-					tieBreaker = 0;
+					tiebreaker = 0;
 				}
 				else if (suitsFound == 1)
 				{
 					handType = HandType.StraightFlush;
-					tieBreaker = maxRank;
+					tiebreaker = maxRank;
 				}
 				else
 				{
 					handType = HandType.Straight;
-					tieBreaker = maxRank;
+					tiebreaker = maxRank;
 				}
 			}
 			else if (maxAlternateRank - minAlternateRank == 4)	// straight with A at the bottom
@@ -168,12 +150,12 @@ namespace evalhand
 				if (suitsFound == 1)
 				{
 					handType = HandType.StraightFlush;
-					tieBreaker = maxAlternateRank;	// will always be 3 (card "5")
+					tiebreaker = maxAlternateRank;	// will always be 3 (card "5")
 				}
 				else
 				{
 					handType = HandType.Straight;
-					tieBreaker = maxAlternateRank;	// will always be 3 (card "5")
+					tiebreaker = maxAlternateRank;	// will always be 3 (card "5")
 				}	
 			}
 			else
@@ -182,46 +164,13 @@ namespace evalhand
 					handType = HandType.Flush;
 				else
 					handType = HandType.HighCard;
-				tieBreaker = rankPerGroup[1][0] * (13 * 13 * 13 * 13)
+				tiebreaker = rankPerGroup[1][0] * (13 * 13 * 13 * 13)
 							+ rankPerGroup[1][1] * (13 * 13 * 13)
 							+ rankPerGroup[1][2] * (13 * 13)
 							+ rankPerGroup[1][3] * 13
 							+ rankPerGroup[1][4];
 			}
-    		return new HandEvaluation { HandType = handType, TieBreaker = tieBreaker };
+    		return new HandEvaluation { HandType = handType, Tiebreaker = (ulong)tiebreaker };
         }
-    }
-
-    enum HandType
-    {
-    	HighCard = 1,
-    	Pair = 2,
-    	TwoPair = 3,
-    	ThreOfAKind = 4,
-    	Straight = 5,
-    	Flush = 6,
-    	FullHouse = 7,
-    	FourOfAKind = 8,
-    	StraightFlush = 9,
-    	RoyalFlush = 10
-    }
-
-    class HandEvaluation
-    {
-    	public HandType HandType { get; set; }
-    	public int TieBreaker { get; set; }
-    	public int AbsoluteValue { 
-    		get 
-    		{ 
-    			return (int)HandType * 1000000		// tie breakers are < 13ˆ5, which is approx 370K 
-    			+ TieBreaker; 
-			} 
-		}
-    }
-
-    struct PlayingCard
-    {
-    	public int Rank {get; set;}
-    	public int Suit {get; set;}
     }
 }
