@@ -40,6 +40,9 @@
 			padding-left: 0.2em;
 			background-color: white;
 		}
+		.playerShowdownEntry{
+			margin-bottom: 0.5em;
+		}
 		.playerShowdownEntry.winner {
 			background-color: rgba(0,0,0,0.3);
 		}
@@ -230,9 +233,13 @@
 					$("#showdown .playerShowdownEntry").each(function(){
 						for (var i = 0; i < message.Players.length; i++)
 						{
-							if ($(this).data("playerName") == message.Players[i].Player && message.Players[i].Won)
+							if ($(this).data("playerName") == message.Players[i].Player)
 							{
-								$(this).addClass("winner");
+								if (message.Players[i].Won)
+								{
+									$(this).addClass("winner");
+								}
+								$(this).append($("<span>").text(message.Players[i].HandType));
 							}
 						}
 					});

@@ -216,6 +216,9 @@ namespace pmPoker
                                                                                                     // to win the pot.
                             : evaluator.Evaluate(p.Cards, communityCards)
                     }).ToArray();
+                // we will alter the evaluations as we discard players in the side pot loop, so let's make a copy
+                // of evaluations at this point for the showdown UI
+                var playerEvaluationsCopyForShowdown = playerEvaluations.Select(e => new PlayerEvaluation{ Player = e.Player, Evaluation = e.Evaluation }).ToArray();
                 // distribute pot money among winners, taking into account possible side pots and ties
                 while (playerEvaluations.Any(e => e.Evaluation.HasValue))
                 {
@@ -260,7 +263,8 @@ namespace pmPoker
                     Players = players.Select(p => new {
                         Player = p.PlayerID,
                         Chips = p.Chips,
-                        Won = mainPotWinners.Contains(p)
+                        Won = mainPotWinners.Contains(p),
+                        HandType = p.Folded ? (HandType?)null : playerEvaluationsCopyForShowdown.First(e => e.Player == p).Evaluation.Value.HandType
                     })
 				});
 				await Task.Delay(10000);		// it's nicer for the UI if we wait here for a moment
