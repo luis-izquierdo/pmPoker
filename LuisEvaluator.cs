@@ -52,11 +52,12 @@ namespace pmPoker
     		int maxAlternateRank = -2;
     		foreach (var c in hand)
     		{
-    			countPerRank[c.Rank]++;
+				var zeroBaseRank = c.Rank - 2;
+    			countPerRank[zeroBaseRank]++;
     			countPerSuit[c.Suit]++;
-    			minRank = Math.Min(minRank, c.Rank);
-    			maxRank = Math.Max(maxRank, c.Rank);
-    			var alternateRank = c.Rank == 12 ? -1 : c.Rank;	// same as regular rank, except for the A
+    			minRank = Math.Min(minRank, zeroBaseRank);
+    			maxRank = Math.Max(maxRank, zeroBaseRank);
+    			var alternateRank = zeroBaseRank == 12 ? -1 : zeroBaseRank;	// same as regular rank, except for the A
     			minAlternateRank = Math.Min(minAlternateRank, alternateRank);
     			maxAlternateRank = Math.Max(maxAlternateRank, alternateRank);
     		}
