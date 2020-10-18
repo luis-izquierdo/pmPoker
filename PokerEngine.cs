@@ -102,8 +102,13 @@ namespace pmPoker
                 for (int i = 0; i < cardsFlippedPerRound.Length && playersInRound > 1; i++) // betting rounds
                 {
 					if (i > 0)
+					{
 						await Task.Delay(2000);		// for UI purposes, so that users notice that a betting round ended and a new one started	
-                    // flip cards (first round = no flipping, second round = 3 flipped, third and fourth = 1 flipped
+                    	// flip cards (first round = no flipping, second round = 3 flipped, third and fourth = 1 flipped
+
+                    	// all betting rounds after the pre-flop begin with the player following the dealer
+                    	currentPlayerIndex = NextPlayerIndex(dealerIndex, players);
+					}
                     for (int j = 0; j < cardsFlippedPerRound[i]; j++)
                     {
                         var communityCard = deck.Dequeue();
