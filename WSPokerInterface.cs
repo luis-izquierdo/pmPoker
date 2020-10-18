@@ -97,7 +97,7 @@ namespace pmPoker
 			{
 				var buffer = new byte[1024 * 4];
 				WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
-				userName = Encoding.UTF8.GetString(buffer, 0, result.Count);
+				userName = Encoding.UTF8.GetString(buffer, 0, result.Count).ToLower();
 				RegisterSocket(userName, webSocket);
 
 				if (gameStarted)
