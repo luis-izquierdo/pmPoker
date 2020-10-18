@@ -74,8 +74,13 @@
 		$("#butFold").click(function(){
 			play("fold");
 		});
-		
-		$("#butBet").click(function(){
+
+		$("#butCheckCall").click(function(){
+			var bet = $(this).data("bet");
+			play(bet);
+		});
+
+		$("#butRaise").click(function(){
 			var playDescription = $("#inputBet").val();
 			$("#inputBet").val("");
 			play(playDescription);
@@ -201,10 +206,21 @@
 					});
 					if (message.Player == playerName)
 					{
+						$("#butCheckCall").data("bet", message.Call);
+						if (message.Call == 0)
+						{
+							$("#butCheckCall").text("Check");
+						}
+						else
+						{
+							$("#butCheckCall").text("Call (" + message.Call + ")");
+						}
 						$("#playingControls").show();
-						$("#inputBet").prop("min", message.Call)
+						var minBet = Math.min(message.AllIn, message.Call + message.MinRaise);
+						$("#inputBet")
+							.prop("min", minBet)
 							.prop("max", message.AllIn)
-							.val(message.Call);
+							.val(minBet);
 					}
 					break;
 				case "PlayerPlayed": 
@@ -325,8 +341,9 @@
 		
 		<div id="playingControls" style="display:none">
 			<button id="butFold">Fold</button>
+			<button id="butCheckCall"></button>
 			<input id="inputBet" type="number"/>
-			<button id="butBet">Bet</button>
+			<button id="butRaise" type="submit">Raise</button>
 		</div>
 	</div>
 	<div id="showdown" style="display:none">
