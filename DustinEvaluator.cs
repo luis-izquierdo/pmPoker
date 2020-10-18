@@ -149,7 +149,7 @@ namespace pmPoker
 
         private static ulong QuadsTiebreaker(ulong fourOfAKindBitmap, ulong rankBitmap)
         {
-            return (fourOfAKindBitmap << 16) | (rankBitmap ^ fourOfAKindBitmap);
+            return (fourOfAKindBitmap << 16) + (ulong)MSB((rankBitmap ^ fourOfAKindBitmap));
         }
 
         private static ulong FullHouseTiebreaker(int threeOfAKindRank, int pairRank)
