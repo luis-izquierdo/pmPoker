@@ -29,14 +29,14 @@ namespace pmPoker
 
                 if (suitCount >= 5)
                 {
-                    if ((suitMask & WheelMask) == WheelMask && (suitMask & AceMask) != 0)
-                        return new HandEvaluation(HandType.StraightFlush, (ulong)LSB(AceMask));
-
                     var straightFlushMask = StraightMask(suitMask);
                     if (straightFlushMask != 0)
-                        return new HandEvaluation(HandType.StraightFlush, (ulong)MSB(straightFlushMask));
-
-
+                    {
+                        HandType handType = (straightFlushMask & AceMask) != 0 ? HandType.RoyalFlush : HandType.StraightFlush;
+                        return new HandEvaluation(handType, (ulong)MSB(straightFlushMask));
+                    }
+                    if ((suitMask & WheelMask) == WheelMask && (suitMask & AceMask) != 0)
+                        return new HandEvaluation(HandType.StraightFlush, (ulong)MSB(WheelMask));
 
                     while (suitCount > 5)
                     {
@@ -54,14 +54,14 @@ namespace pmPoker
             }
 
             if (fourOfAKindBitmap != 0)
-                return new HandEvaluation(HandType.FourOfAKind, (ulong)MSB(rankBitmap ^ fourOfAKindBitmap));
-
-            if ((rankBitmap & WheelMask) == WheelMask && (rankBitmap & AceMask) != 0)
-                return new HandEvaluation(HandType.Straight, (ulong)LSB(AceMask));
+                return new HandEvaluation(HandType.FourOfAKind, QuadsTiebreaker(fourOfAKindBitmap, rankBitmap));
 
             var straightMask = StraightMask(rankBitmap);
             if (straightMask != 0)
                 return new HandEvaluation(HandType.Straight, (ulong)MSB(straightMask));
+
+            if ((rankBitmap & WheelMask) == WheelMask && (rankBitmap & AceMask) != 0)
+                return new HandEvaluation(HandType.Straight, (ulong)MSB(WheelMask));
 
 
             if (pairBitmap != 0)
@@ -145,6 +145,11 @@ namespace pmPoker
         private static ulong SuittMask(ulong bitmask, int suit)
         {
             return (bitmask >> (16 * suit)) & 0xFFFC;
+        }
+
+        private static ulong QuadsTiebreaker(ulong fourOfAKindBitmap, ulong rankBitmap)
+        {
+            return (fourOfAKindBitmap << 16) | (rankBitmap ^ fourOfAKindBitmap);
         }
 
         private static ulong FullHouseTiebreaker(int threeOfAKindRank, int pairRank)
