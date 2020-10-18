@@ -65,7 +65,7 @@
 				if (!socket || socket.readyState !== WebSocket.OPEN) {
 					alert("socket not connected");
 				}
-				playerName = $("#inputPlayerName").val();
+				playerName = $("#inputPlayerName").val().toLowerCase();
 				console.log("Client->Sender: " + playerName);
 				socket.send(playerName);
 			}
@@ -119,24 +119,46 @@
 		var scheme = document.location.protocol === "https:" ? "wss" : "ws";
         var port = document.location.port ? (":" + document.location.port) : "";
 		socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
-		socket.onopen = function (event) {
+		socket.onopen = socket_onopen;
+		socket.onmessage = socket_onmessage;
+		socket.onclose = socket_onclose;
+		window.socket = socket;	// for debugging purposes
+
+		var reconnectInterval = setInterval(function(){
+			if (socket.readyState !== WebSocket.OPEN)
+			{
+				console.log("Reconnecting...");
+				socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
+				socket.onopen = socket_onopen;
+				socket.onmessage = socket_onmessage;
+				socket.onclose = socket_onclose;
+				window.socket = socket;	// for debugging purposes
+			}
+		}, 3000);
+		function socket_onopen(event) {
 			console.log("Connection opened");
+			if (playerName)
+			{
+				console.log("Client->Sender: " + playerName);
+				socket.send(playerName);
+			}
 		};
-		socket.onclose = function (event) {
+		function socket_onclose (event) {
 			console.log("Connection closed. Code: " + event.code + ". Reason: " + event.reason);
 		};
 		//socket.onerror = ...;		// TODO
-		socket.onmessage = function (event) {
+		function socket_onmessage (event) {
 			console.log("Server->Client: " + event.data);
 			var message = JSON.parse(event.data);
 			switch (message.MessageType)
 			{
 				case "GameStarts": 
 					$("#divWaitingForGameStart").hide();
+					$("#tablePlayers .player").remove();	// clear rows in case the message is received when reconnecting
 					$("#divGame").show();
 					for (var i = 0; i < message.Players.length; i++)
 					{
-						var tr = $("<tr>");
+						var tr = $("<tr>").addClass("player");
 						tr.append($("<td>").text(message.Players[i]));
 						tr.append($("<td>").text("0"));
 						tr.append($("<td>").text(message.Chips));
