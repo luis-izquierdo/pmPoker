@@ -65,7 +65,7 @@ namespace pmPoker
 				{
 					try
 					{
-						var t = webSocket.SendAsync(new ArraySegment<byte>(messageBytes, 0, messageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+						var t = webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
 					}
 					catch (Exception) {}
 				}
@@ -80,7 +80,7 @@ namespace pmPoker
 				messageLog.Add(Tuple.Create(userName, messageBytes));
 				try
 				{
-					connectedSockets[userName].SendAsync(new ArraySegment<byte>(messageBytes, 0, messageBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+					connectedSockets[userName].SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
 				}
 				catch (Exception) {}	// TODO: logging
 			}
@@ -97,20 +97,27 @@ namespace pmPoker
 			{
 				var buffer = new byte[1024 * 4];
 				WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
-				userName = Encoding.UTF8.GetString(buffer, 0, result.Count);
+				userName = Encoding.UTF8.GetString(buffer, 0, result.Count).ToLower();
 				RegisterSocket(userName, webSocket);
 
 				if (gameStarted)
 				{
 					// send all messages so far so that the UI gets to the current point in the game
+					// TODO: guarantee that no ordinary messages are sent to userName while a replay sequence is being sent
+					await connectedSockets[userName].SendAsync(new ArraySegment<byte>(
+							Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new{ MessageType = MessageType.ReplayStart }, converter))), 
+						WebSocketMessageType.Text, true, CancellationToken.None);
 					foreach (var t in messageLog.Where(t => t.Item1 == null || t.Item1 == userName))
 					{
 						try
 						{
-							await connectedSockets[userName].SendAsync(new ArraySegment<byte>(t.Item2, 0, t.Item2.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+							await connectedSockets[userName].SendAsync(new ArraySegment<byte>(t.Item2), WebSocketMessageType.Text, true, CancellationToken.None);
 						}
 						catch (Exception) {}	// TODO: logging
 					}
+					await connectedSockets[userName].SendAsync(new ArraySegment<byte>(
+							Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new{ MessageType = MessageType.ReplayEnd }, converter))), 
+						WebSocketMessageType.Text, true, CancellationToken.None);
 				}
 
 				while (!result.CloseStatus.HasValue)

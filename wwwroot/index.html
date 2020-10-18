@@ -42,6 +42,7 @@
 			padding-top: 0.2em;
 			padding-left: 0.2em;
 			background-color: white;
+			font-size: 130%;
 		}
 		.playerShowdownEntry{
 			margin-bottom: 0.5em;
@@ -65,7 +66,7 @@
 				if (!socket || socket.readyState !== WebSocket.OPEN) {
 					alert("socket not connected");
 				}
-				playerName = $("#inputPlayerName").val();
+				playerName = $("#inputPlayerName").val().toLowerCase();
 				console.log("Client->Sender: " + playerName);
 				socket.send(playerName);
 			}
@@ -74,8 +75,13 @@
 		$("#butFold").click(function(){
 			play("fold");
 		});
-		
-		$("#butBet").click(function(){
+
+		$("#butCheckCall").click(function(){
+			var bet = $(this).data("bet");
+			play(bet);
+		});
+
+		$("#butRaise").click(function(){
 			var playDescription = $("#inputBet").val();
 			$("#inputBet").val("");
 			play(playDescription);
@@ -119,24 +125,46 @@
 		var scheme = document.location.protocol === "https:" ? "wss" : "ws";
         var port = document.location.port ? (":" + document.location.port) : "";
 		socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
-		socket.onopen = function (event) {
+		socket.onopen = socket_onopen;
+		socket.onmessage = socket_onmessage;
+		socket.onclose = socket_onclose;
+		window.socket = socket;	// for debugging purposes
+
+		var reconnectInterval = setInterval(function(){
+			if (socket.readyState !== WebSocket.OPEN)
+			{
+				console.log("Reconnecting...");
+				socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
+				socket.onopen = socket_onopen;
+				socket.onmessage = socket_onmessage;
+				socket.onclose = socket_onclose;
+				window.socket = socket;	// for debugging purposes
+			}
+		}, 3000);
+		function socket_onopen(event) {
 			console.log("Connection opened");
+			if (playerName)
+			{
+				console.log("Client->Sender: " + playerName);
+				socket.send(playerName);
+			}
 		};
-		socket.onclose = function (event) {
+		function socket_onclose (event) {
 			console.log("Connection closed. Code: " + event.code + ". Reason: " + event.reason);
 		};
 		//socket.onerror = ...;		// TODO
-		socket.onmessage = function (event) {
+		function socket_onmessage (event) {
 			console.log("Server->Client: " + event.data);
 			var message = JSON.parse(event.data);
 			switch (message.MessageType)
 			{
 				case "GameStarts": 
 					$("#divWaitingForGameStart").hide();
+					$("#tablePlayers .player").remove();	// clear rows in case the message is received when reconnecting
 					$("#divGame").show();
 					for (var i = 0; i < message.Players.length; i++)
 					{
-						var tr = $("<tr>");
+						var tr = $("<tr>").addClass("player");
 						tr.append($("<td>").text(message.Players[i]));
 						tr.append($("<td>").text("0"));
 						tr.append($("<td>").text(message.Chips));
@@ -179,10 +207,21 @@
 					});
 					if (message.Player == playerName)
 					{
+						$("#butCheckCall").data("bet", message.Call);
+						if (message.Call == 0)
+						{
+							$("#butCheckCall").text("Check");
+						}
+						else
+						{
+							$("#butCheckCall").text("Call (" + message.Call + ")");
+						}
 						$("#playingControls").show();
-						$("#inputBet").prop("min", message.Call)
+						var minBet = Math.min(message.AllIn, message.Call + message.MinRaise);
+						$("#inputBet")
+							.prop("min", minBet)
 							.prop("max", message.AllIn)
-							.val(message.Call);
+							.val(minBet);
 					}
 					break;
 				case "PlayerPlayed": 
@@ -303,8 +342,9 @@
 		
 		<div id="playingControls" style="display:none">
 			<button id="butFold">Fold</button>
+			<button id="butCheckCall"></button>
 			<input id="inputBet" type="number"/>
-			<button id="butBet">Bet</button>
+			<button id="butRaise" type="submit">Raise</button>
 		</div>
 	</div>
 	<div id="showdown" style="display:none">

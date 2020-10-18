@@ -62,9 +62,9 @@ namespace pmPoker
                 var smallBlindIndex = NextPlayerIndex(dealerIndex, players);
                 var bigBlindIndex = NextPlayerIndex(smallBlindIndex, players);
                 var t = getBlindBetAmounts(round);
-                var smallBlind = t.Item1;
-                var bigBlind = t.Item2;
-                // TODO: what if the small and/or big blind players don't have enough money for the blind bet?
+                var smallBlind = Math.Min(t.Item1, players[smallBlindIndex].Chips);
+                var bigBlind = Math.Min(t.Item2, players[bigBlindIndex].Chips);
+                var lastRaise = bigBlind;
                 players[smallBlindIndex].Chips -= smallBlind;
                 players[smallBlindIndex].CurrentBet = smallBlind;
                 pot += smallBlind;
@@ -77,6 +77,7 @@ namespace pmPoker
 					PlayerTotalBet = players[smallBlindIndex].CurrentBet,
 					PlayerChips = players[smallBlindIndex].Chips,
 					Pot = pot,
+                    LastRaise = 0
 				});
 
                 players[bigBlindIndex].Chips -= bigBlind;
@@ -91,6 +92,7 @@ namespace pmPoker
 					PlayerTotalBet = players[bigBlindIndex].CurrentBet,
 					PlayerChips = players[bigBlindIndex].Chips,
 					Pot = pot,
+                    LastRaise = lastRaise
 				});
 
                 var highestBet = bigBlind;
@@ -102,8 +104,13 @@ namespace pmPoker
                 for (int i = 0; i < cardsFlippedPerRound.Length && playersInRound > 1; i++) // betting rounds
                 {
 					if (i > 0)
+					{
 						await Task.Delay(2000);		// for UI purposes, so that users notice that a betting round ended and a new one started	
-                    // flip cards (first round = no flipping, second round = 3 flipped, third and fourth = 1 flipped
+                    	// flip cards (first round = no flipping, second round = 3 flipped, third and fourth = 1 flipped
+
+                    	// all betting rounds after the pre-flop begin with the player following the dealer
+                    	currentPlayerIndex = NextPlayerIndex(dealerIndex, players);
+					}
                     for (int j = 0; j < cardsFlippedPerRound[i]; j++)
                     {
                         var communityCard = deck.Dequeue();
@@ -124,7 +131,8 @@ namespace pmPoker
 							MessageType = MessageType.WaitingForPlay,
 							Player = players[currentPlayerIndex].PlayerID,
 							Call = highestBet - players[currentPlayerIndex].CurrentBet,
-							AllIn = players[currentPlayerIndex].Chips
+							AllIn = players[currentPlayerIndex].Chips,
+                            MinRaise = lastRaise
 						});
                         if (cancellationToken.IsCancellationRequested)
                             return;
@@ -168,6 +176,7 @@ namespace pmPoker
                             if (players[currentPlayerIndex].CurrentBet > highestBet)   // if this is a raise
                             {
 								playType = PlayType.Raise;
+                                lastRaise = players[currentPlayerIndex].CurrentBet - highestBet;
                                 highestBet = players[currentPlayerIndex].CurrentBet;
                                 // everybody else who has not folded needs to play
                                 foreach (var p in players.Where(p => !p.Folded && p != players[currentPlayerIndex]))
@@ -181,6 +190,7 @@ namespace pmPoker
 								PlayerTotalBet = players[currentPlayerIndex].CurrentBet,
 								PlayerChips = players[currentPlayerIndex].Chips,
 								Pot = pot,
+                                LastRaise = lastRaise
 							});
 
                         }
@@ -296,20 +306,7 @@ namespace pmPoker
             public PlayerInfo Player { get; set; }
             public HandEvaluation? Evaluation { get; set; }
         }
-		enum MessageType
-		{
-			GameStarts,
-			RoundStarts,
-			YourCards,
-			WaitingForPlay,
-			PlayerPlayed,
-			CommunityCardFlipped,
-			Showdown,
-			RoundEnded,
-			GameWinner,
-			PlayerOut
-		}
-		
+
 		enum PlayType
 		{
 			Fold,
@@ -352,6 +349,21 @@ namespace pmPoker
             return randomizedDeck;
         }
     }
+    enum MessageType
+		{
+			GameStarts,
+			RoundStarts,
+			YourCards,
+			WaitingForPlay,
+			PlayerPlayed,
+			CommunityCardFlipped,
+			Showdown,
+			RoundEnded,
+			GameWinner,
+			PlayerOut,
+            ReplayStart,
+            ReplayEnd
+		}
 	
     public class PlayingCard
     {
