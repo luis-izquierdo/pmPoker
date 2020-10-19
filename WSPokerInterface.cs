@@ -62,7 +62,9 @@ namespace pmPoker
 			lock (this)
 			{
 				gameStarted = true;
-				var messageBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message, converter));
+				var messageJson = JsonConvert.SerializeObject(message, converter);
+				logger.LogDebug($"Broadcast({messageJson})");
+				var messageBytes = Encoding.UTF8.GetBytes(messageJson);
 				messageLog.Add(Tuple.Create((string)null, messageBytes));
 				foreach (var webSocket in connectedSockets.Values)
 				{
@@ -79,7 +81,9 @@ namespace pmPoker
 			lock (this)
 			{
 				gameStarted = true;
-				var messageBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message, converter));
+				var messageJson = JsonConvert.SerializeObject(message, converter);
+				logger.LogDebug($"SendToSinglePlayer({userName}, {message})");
+				var messageBytes = Encoding.UTF8.GetBytes(messageJson);
 				messageLog.Add(Tuple.Create(userName, messageBytes));
 				try
 				{
@@ -146,7 +150,7 @@ namespace pmPoker
 			}
 			catch (WebSocketException ex)
 			{
-				logger.LogError(ex, "Error from player websocket.");
+				logger.LogError(ex, $"Error from player websocket. Player name: {userName}");
 				// this happens if a player closes its connection
 				return;
 			}

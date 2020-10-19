@@ -27,8 +27,8 @@ namespace pmPoker
             string[] playerIDs, int initChips, Func<int, Tuple<int,int>> getBlindBetAmounts,
             CancellationToken cancellationToken)
         {
-            if (playerIDs.Length < 3)
-                throw new ArgumentOutOfRangeException("Minimum = 3 players");
+            if (playerIDs.Length < 2)
+                throw new ArgumentOutOfRangeException("Minimum = 2 players");
 			userInterface.Broadcast(new {
 				MessageType = MessageType.GameStarts, 
 				Players = playerIDs,
