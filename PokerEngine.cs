@@ -4,22 +4,31 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace pmPoker
 {
-    class PokerEngine
+    public interface IPokerEngine
+    {
+        Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, 
+            string[] playerIDs, int initChips, Func<int, Tuple<int,int>> getBlindBetAmounts,
+            CancellationToken cancellationToken);
+    }
+    class PokerEngine : IPokerEngine
     {
         private readonly IHandEvaluator evaluator;
-        public PokerEngine(IHandEvaluator evaluator)
+        private readonly ILogger logger;
+        public PokerEngine(IHandEvaluator evaluator, ILogger<PokerEngine> logger)
         {
             this.evaluator = evaluator;
+            this.logger = logger;
         }
         public async Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, 
             string[] playerIDs, int initChips, Func<int, Tuple<int,int>> getBlindBetAmounts,
             CancellationToken cancellationToken)
         {
-            if (playerIDs.Length < 3)
-                throw new ArgumentOutOfRangeException("Minimum = 3 players");
+            if (playerIDs.Length < 2)
+                throw new ArgumentOutOfRangeException("Minimum = 2 players");
 			userInterface.Broadcast(new {
 				MessageType = MessageType.GameStarts, 
 				Players = playerIDs,
@@ -143,7 +152,7 @@ namespace pmPoker
                         }
                         catch (OperationCanceledException)  // this happens if the admin resets the game
                         {
-                            // TODO: add logging
+                            logger.LogInformation("Aborting game because of manual cancellation.");
                             return;
                         }
                         players[currentPlayerIndex].NeedsToPlay = false;
@@ -192,7 +201,6 @@ namespace pmPoker
 								Pot = pot,
                                 LastRaise = lastRaise
 							});
-
                         }
                         currentPlayerIndex = NextPlayerIndex(currentPlayerIndex, players);
                     }

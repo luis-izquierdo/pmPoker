@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using pmPoker;
 
 namespace pmPoker.Controllers
 {
@@ -14,10 +9,12 @@ namespace pmPoker.Controllers
     public class AdminController : ControllerBase
     {
 		private readonly IWSPokerInterface _wsPokerInterface;
+		private readonly IPokerEngine pokerEngine;
 
-        public AdminController(IWSPokerInterface wsPokerInterface)
+        public AdminController(IWSPokerInterface wsPokerInterface, IPokerEngine pokerEngine)
         {
 			_wsPokerInterface = wsPokerInterface;
+			this.pokerEngine = pokerEngine;
         }
 
         [HttpGet]
@@ -29,7 +26,6 @@ namespace pmPoker.Controllers
 		[HttpPost]
 		public string StartGame()
 		{
-			var pokerEngine = new PokerEngine(new DustinEvaluator());
 			var randomizerSeed = new Random().Next();
 			var t = Task.Run(() => pokerEngine.RunGame(randomizerSeed, _wsPokerInterface, _wsPokerInterface.GetConnectedPlayers(), 
 				5000,	// initial chips per player
@@ -55,6 +51,5 @@ namespace pmPoker.Controllers
 			_wsPokerInterface.Reset();
 			return "OK";
 		}
-
     }
 }
