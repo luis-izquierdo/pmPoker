@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -35,10 +36,12 @@ namespace pmPoker
 		private CancellationTokenSource engineCancellationTokenSource;
 		private bool gameStarted;
 		private List<Tuple<string, byte[]>> messageLog;
-		public WSPokerInterface()
+		private readonly ILogger<WSPokerInterface> logger;
+		public WSPokerInterface(ILogger<WSPokerInterface> logger)
 		{
 			engineCancellationTokenSource = new CancellationTokenSource();
 			messageLog = new List<Tuple<string, byte[]>>();
+			this.logger = logger;
 		}
 		private void RegisterSocket(string userName, WebSocket socket)
 		{
@@ -102,6 +105,7 @@ namespace pmPoker
 
 				if (gameStarted)
 				{
+					logger.LogDebug($"User {userName} connected after game started. Replaying past messages for them.");
 					// send all messages so far so that the UI gets to the current point in the game
 					// TODO: guarantee that no ordinary messages are sent to userName while a replay sequence is being sent
 					await connectedSockets[userName].SendAsync(new ArraySegment<byte>(
@@ -127,27 +131,29 @@ namespace pmPoker
 					{
 						break;
 					}
+					var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+					logger.LogDebug($"Message received from {userName}: {message}");
 					if (expectingPlayFrom == userName)
 					{
-						var play = Encoding.UTF8.GetString(buffer, 0, result.Count);
-						if (play == "fold")
+						if (message == "fold")
 							tcs.SetResult(new PokerPlay { Type = PokerPlayType.Fold });
 						else
-							tcs.SetResult(new PokerPlay { Type = PokerPlayType.Bet, BetAmount = int.Parse(play) });
+							tcs.SetResult(new PokerPlay { Type = PokerPlayType.Bet, BetAmount = int.Parse(message) });
 					}
 				}
 				if (webSocket.State != WebSocketState.Closed)
 					await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, engineCancellationTokenSource.Token);
 			}
-			catch (WebSocketException)
+			catch (WebSocketException ex)
 			{
+				logger.LogError(ex, "Error from player websocket.");
 				// this happens if a player closes its connection
-				return;	// TODO: logging
+				return;
 			}
 			catch (OperationCanceledException)
 			{
-				// this happens if the game is reset
-				return;	// TODO: logging
+				logger.LogInformation("Stopping player message loop because of manual cancellation.");
+				return;
 			}
 			finally
 			{
