@@ -1,0 +1,94 @@
+// Bootstrap Breakpoints
+$zero: 0;
+$min: 320px;
+$xs: 544px;
+$sm: 768px;
+$md: 992px;
+$lg: 1200px;
+$xl: 1700px;
+
+// Media Queries Breakpoints
+@mixin media($feature) {
+     @media screen and (min-width: $feature) {
+       @content;
+   }
+ }
+
+// Helper Media Range function for specific frames
+@mixin media-range($range1, $range2) {
+  @media all and (min-width: $range1) and (max-width: $range2 - 1) {
+    @content;
+  }
+}
+
+// This is a helper function for clearfix of rows with items with the
+// same column size
+@mixin clear-rows($span) {
+  // Set the new Row Fix 
+  &:nth-child(#{$span}n){
+    margin-right: 0;
+  }
+  &:nth-child(#{$span}n+1){
+    clear: both;
+  }
+}
+
+body{
+  min-width: 320px;
+}
+
+// Deck Styles
+
+// TODO--- Move Styles from index.html
+.card{
+  height: 4.4em !important;
+  overflow: hidden;
+  border-radius: 0.3em !important;
+  box-shadow: 0 0 7px #333333;
+}
+.red, .black{
+  i.fas {
+    font-size: 2.6em;
+    position: absolute;
+    margin-top: 0.6em;
+    margin-left: 0.2em;
+  }
+  > span{
+    margin-top: -0.3em;
+    position: absolute;
+    text-align: center;
+    display: inline-block;
+    width: 15px;
+  }
+}
+.sm-heart, .sm-diamond, .sm-spade, .sm-club{
+  &::after{
+    font-family: 'Font Awesome 5 Pro';
+    content: '\f2f4';
+    display: block;
+    margin-top: -0.5em;
+    font-weight: bold;
+    position: absolute;
+    font-size: 0.7em;
+  }
+}
+.sm-diamond{
+  &::after{
+    content: '\f219';
+  }
+}
+.sm-heart{
+  &::after{
+    content: '\f004';
+  }
+}
+.sm-spade{
+  &::after{
+    content: '\f2f4';
+  }
+}
+.sm-club{
+  &::after{
+    content: '\f327';
+  }
+}

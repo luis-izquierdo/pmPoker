@@ -6,6 +6,7 @@
 	<title>pmPoker</title>
 	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
 	<link rel="stylesheet" href="css/all.css">
+	<link rel="stylesheet" href="css/style.css">
     <style>
 		body { 
 			background-color: rgb(14, 118, 93);
@@ -116,8 +117,9 @@
 			suit = suit.substr(0, suit.length - 1);	// drop the final "s"
 			var colors = {spade:"black", club:"black", heart:"red", diamond:"red"};
 			return $("<div>")
+				.addClass('card')
 				.addClass(colors[suit])
-				.append($("<span>").text(card.Rank))
+				.append($("<span>").text(card.Rank).addClass("sm-" + suit))
 				.append($("<i>").addClass("fas").addClass("fa-" + suit));
 		}
 	
