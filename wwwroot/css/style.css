@@ -1,33 +1,39 @@
-/* line 36, ../../sass/style.scss */
+/* line 35, ../../sass/style.scss */
 body {
   min-width: 320px;
 }
 
-/* line 43, ../../sass/style.scss */
+/* line 81, ../../sass/style.scss */
 .card {
   height: 4.4em !important;
   overflow: hidden;
   border-radius: 0.3em !important;
   box-shadow: 0 0 7px #333333;
+  text-align: left;
+}
+/* line 87, ../../sass/style.scss */
+.card:last-child {
+  margin-right: 0;
 }
 
-/* line 50, ../../sass/style.scss */
+/* line 92, ../../sass/style.scss */
 .red i.fas, .black i.fas {
   font-size: 2.6em;
   position: absolute;
   margin-top: 0.6em;
   margin-left: 0.2em;
 }
-/* line 56, ../../sass/style.scss */
+/* line 98, ../../sass/style.scss */
 .red > span, .black > span {
   margin-top: -0.3em;
   position: absolute;
   text-align: center;
   display: inline-block;
   width: 15px;
+  white-space: nowrap;
 }
 
-/* line 65, ../../sass/style.scss */
+/* line 108, ../../sass/style.scss */
 .sm-heart::after, .sm-diamond::after, .sm-spade::after, .sm-club::after {
   font-family: 'Font Awesome 5 Pro';
   content: '\f2f4';
@@ -38,22 +44,158 @@ body {
   font-size: 0.7em;
 }
 
-/* line 76, ../../sass/style.scss */
+/* line 119, ../../sass/style.scss */
 .sm-diamond::after {
   content: '\f219';
 }
 
-/* line 81, ../../sass/style.scss */
+/* line 124, ../../sass/style.scss */
 .sm-heart::after {
   content: '\f004';
 }
 
-/* line 86, ../../sass/style.scss */
+/* line 129, ../../sass/style.scss */
 .sm-spade::after {
   content: '\f2f4';
 }
 
-/* line 91, ../../sass/style.scss */
+/* line 134, ../../sass/style.scss */
 .sm-club::after {
   content: '\f327';
+}
+
+/* line 141, ../../sass/style.scss */
+.showdown {
+  margin: 0 auto;
+  width: 355px;
+}
+
+/* line 145, ../../sass/style.scss */
+#communityCards {
+  margin: 0 auto;
+  width: 355px;
+  position: absolute;
+  top: 30em;
+  left: 40%;
+}
+
+/* line 152, ../../sass/style.scss */
+div#playerCards {
+  position: fixed;
+  bottom: -1em;
+  font-size: 2em;
+  z-index: 3;
+  left: 45%;
+  height: 6em;
+}
+/* line 160, ../../sass/style.scss */
+div#playerCards .card:first-child {
+  transform: rotate(-8deg);
+}
+/* line 163, ../../sass/style.scss */
+div#playerCards .card:last-child {
+  transform: rotate(8deg);
+  margin-left: -2em;
+}
+
+/* line 169, ../../sass/style.scss */
+.playerShowdownEntry {
+  float: left;
+  margin: 0 30px;
+}
+
+/* line 174, ../../sass/style.scss */
+div#showdownModal {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  text-align: center;
+  z-index: 4;
+}
+
+/* line 184, ../../sass/style.scss */
+.playerShowdownEntry {
+  margin-bottom: 0.5em;
+  margin-top: 20em;
+  display: inline-block;
+}
+
+/* line 189, ../../sass/style.scss */
+div#showdownContainer {
+  width: 24.4em;
+  margin: 0 auto;
+}
+
+/* line 194, ../../sass/style.scss */
+.table-render {
+  text-align: center;
+}
+/* line 196, ../../sass/style.scss */
+.table-render i {
+  font-size: 4em;
+}
+/* line 199, ../../sass/style.scss */
+.table-render span {
+  display: inline-block;
+}
+
+/* line 204, ../../sass/style.scss */
+.circle-container {
+  position: relative;
+  width: 40em;
+  height: 40em;
+  padding: 0;
+  border-radius: 50%;
+  list-style: none;
+  margin: 5em auto 250px;
+  border: solid 5px #333333;
+}
+/* line 53, ../../sass/style.scss */
+.circle-container > * {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8em;
+  height: 8em;
+  margin: -4em;
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(1) {
+  transform: rotate(0deg) translate(20em) rotate(0deg);
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(2) {
+  transform: rotate(45deg) translate(20em) rotate(-45deg);
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(3) {
+  transform: rotate(90deg) translate(20em) rotate(-90deg);
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(4) {
+  transform: rotate(135deg) translate(20em) rotate(-135deg);
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(5) {
+  transform: rotate(180deg) translate(20em) rotate(-180deg);
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(6) {
+  transform: rotate(225deg) translate(20em) rotate(-225deg);
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(7) {
+  transform: rotate(270deg) translate(20em) rotate(-270deg);
+}
+/* line 66, ../../sass/style.scss */
+.circle-container > *:nth-of-type(8) {
+  transform: rotate(315deg) translate(20em) rotate(-315deg);
+}
+/* line 211, ../../sass/style.scss */
+.circle-container li:hover, .circle-container li:active {
+  filter: grayscale(0);
 }

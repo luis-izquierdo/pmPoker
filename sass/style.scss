@@ -32,9 +32,47 @@ $xl: 1700px;
     clear: both;
   }
 }
-
 body{
   min-width: 320px;
+}
+
+/// Mixin to place items on a circle
+/// @author Hugo Giraudel
+/// @author Ana Tudor
+/// @param {Integer} $item-count - Number of items on the circle
+/// @param {Length} $circle-size - Large circle size
+/// @param {Length} $item-size - Single item size
+@mixin on-circle($item-count, $circle-size, $item-size) {
+  position: relative;
+  width:  $circle-size;
+  height: $circle-size;
+  padding: 0;
+  border-radius: 50%; 
+  list-style: none;       
+  
+  > * {
+    display: block;
+    position: absolute;
+    top:  50%; 
+    left: 50%;
+    width:  $item-size;
+    height: $item-size;
+    margin: -($item-size / 2);
+  
+    $angle: (360 / $item-count);
+    $rot: 0;
+
+    @for $i from 1 through $item-count {
+      &:nth-of-type(#{$i}) {
+        transform: 
+          rotate($rot * 1deg) 
+          translate($circle-size / 2) 
+          rotate($rot * -1deg);
+      }
+
+      $rot: $rot + $angle;
+    }
+  }
 }
 
 // Deck Styles
@@ -45,6 +83,10 @@ body{
   overflow: hidden;
   border-radius: 0.3em !important;
   box-shadow: 0 0 7px #333333;
+  text-align: left;
+  &:last-child{
+    margin-right: 0;
+  }
 }
 .red, .black{
   i.fas {
@@ -59,6 +101,7 @@ body{
     text-align: center;
     display: inline-block;
     width: 15px;
+    white-space: nowrap;
   }
 }
 .sm-heart, .sm-diamond, .sm-spade, .sm-club{
@@ -90,5 +133,84 @@ body{
 .sm-club{
   &::after{
     content: '\f327';
+  }
+}
+
+// Table Layout
+
+.showdown {
+  margin: 0 auto;
+  width: 355px;
+}
+#communityCards {
+  margin: 0 auto;
+  width: 355px;
+  position: absolute;
+  top: 30em;
+  left: 40%;
+}
+div#playerCards {
+  position: fixed;
+  bottom: -1em;
+  font-size: 2em;
+  z-index: 3;
+  left: 45%;
+  height: 6em;
+  .card {
+    &:first-child {
+      transform: rotate(-8deg);
+    }
+    &:last-child {
+      transform: rotate(8deg);
+      margin-left: -2em;
+    }
+  }
+}
+.playerShowdownEntry {
+  float: left;
+  margin: 0 30px;
+}
+
+div#showdownModal {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  text-align: center;
+  z-index: 4;
+}
+.playerShowdownEntry {
+  margin-bottom: 0.5em;
+  margin-top: 20em;
+  display: inline-block;
+}
+div#showdownContainer {
+  width: 24.4em;
+  margin: 0 auto;
+}
+
+.table-render{
+  text-align: center;
+  i{
+    font-size: 4em;
+  }
+  span {
+    display: inline-block;
+  }
+}
+
+.circle-container {
+  @include on-circle($item-count: 8, $circle-size: 40em, $item-size: 8em); 
+  margin: 5em auto 250px;
+  border: solid 5px #333333;
+  
+  li { 
+    
+    &:hover,
+    &:active {
+      filter: grayscale(0);
+    }
   }
 }

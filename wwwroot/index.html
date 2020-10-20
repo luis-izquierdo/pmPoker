@@ -90,7 +90,7 @@
 
 		$("#butCloseShowdown").click(function(){
 			$("#showdown").hide();
-			$("#showdownCards").empty();
+			$("#showdownModal").empty();
 			$("#divGame").show();
 		});
 		
@@ -164,6 +164,7 @@
 					$("#divWaitingForGameStart").hide();
 					$("#tablePlayers .player").remove();	// clear rows in case the message is received when reconnecting
 					$("#divGame").show();
+					$(".circle-container").show();
 					for (var i = 0; i < message.Players.length; i++)
 					{
 						var tr = $("<tr>").addClass("player");
@@ -253,7 +254,7 @@
 					$("#showdownCards").empty();
 					$("#showdown").show();
 					// duplicate community cards inside the showdown panel
-					$("#showdownCards").append($("<div>").append($("#communityCards").children().clone()));
+					$("#showdownCards").append($("<div>").addClass('showdown').append($("#communityCards").children().clone()));
 					// now add player cards
 					for (var i = 0; i < message.PlayerCards.length; i++)
 					{
@@ -262,7 +263,7 @@
 						{
 							cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
 						}
-						$("#showdownCards").append(
+						$("#showdownContainer").prepend(
 							$("<div>")
 								.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
 								.data("playerName", message.PlayerCards[i].Player)
@@ -349,11 +350,20 @@
 			<button id="butRaise" type="submit">Raise</button>
 		</div>
 	</div>
+	<ul class='circle-container table-render' style="display:none">
+	  <li><i class="fas fa-user"></i> <span>Player name | X Chips</span></li>
+	  <li><i class="fas fa-user"></i> <span>Player name | X Chips</span></li>
+	  <li><i class="fas fa-user"></i> <span>Player name | X Chips</span></li>
+	</ul>
 	<div id="showdown" style="display:none">
 		<strong>Showdown</strong>
 		<div id="showdownCards">
 		</div>
-		<button id="butCloseShowdown">Close</button>
+		<div id="showdownModal">
+			<div id="showdownContainer">
+				<button id="butCloseShowdown">Close</button>
+			</div>
+		</div>
 	</div>
 	<div id="messageRibbon" style="display:none"></div>
 </body>
