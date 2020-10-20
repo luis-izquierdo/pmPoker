@@ -82,7 +82,7 @@ namespace pmPoker
 			{
 				gameStarted = true;
 				var messageJson = JsonConvert.SerializeObject(message, converter);
-				logger.LogDebug($"SendToSinglePlayer({userName}, {message})");
+				logger.LogDebug($"SendToSinglePlayer({userName}, {messageJson})");
 				var messageBytes = Encoding.UTF8.GetBytes(messageJson);
 				messageLog.Add(Tuple.Create(userName, messageBytes));
 				try
