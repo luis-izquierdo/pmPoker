@@ -29,7 +29,9 @@ namespace pmPoker
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-			services.AddSingleton<IWSPokerInterface>(sp => new WSPokerInterface());
+            services.AddSingleton<IHandEvaluator, DustinEvaluator>();
+            services.AddSingleton<IPokerEngine, PokerEngine>();
+			services.AddSingleton<IWSPokerInterface, WSPokerInterface>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
