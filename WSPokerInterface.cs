@@ -105,6 +105,7 @@ namespace pmPoker
 				var buffer = new byte[1024 * 4];
 				WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
 				userName = Encoding.UTF8.GetString(buffer, 0, result.Count).ToLower();
+				RegisterSocket(userName, webSocket);	// only at this point the player can start getting real-time messages
 
 				if (gameStarted)
 				{
@@ -125,7 +126,6 @@ namespace pmPoker
 							Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new{ MessageType = MessageType.ReplayEnd }, converter))), 
 						WebSocketMessageType.Text, true, CancellationToken.None);
 				}
-				RegisterSocket(userName, webSocket);	// only at this point the player can start getting real-time messages
 
 				while (!result.CloseStatus.HasValue)
 				{
