@@ -216,6 +216,7 @@
 						{
 							$("#butCheckCall").text("Call (" + message.Call + ")");
 						}
+						$("#audioNotification")[0].play();
 						$("#playingControls").show();
 						var minBet = Math.min(message.AllIn, message.Call + message.MinRaise);
 						$("#inputBet")
@@ -314,6 +315,11 @@
 
 </head>
 <body>
+	<div id="header">
+		<audio id="audioNotification" style="display: none;">
+			<source src="media/ding.mp3" type="audio/mpeg"/>
+		</audio>
+	</div>
 	<div id="divPlayerName">
 		Your name:
 		<input id="inputPlayerName" />
