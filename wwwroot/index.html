@@ -12,6 +12,11 @@
 			color: white;
 			padding-left:0.5em;
 		}
+		#header i
+		{
+			font-size: 120%;
+			cursor: pointer;
+		}
 		table
 		{
 			background-color: rgb(10, 85, 60);
@@ -92,6 +97,31 @@
 			$("#showdownCards").empty();
 			$("#divGame").show();
 		});
+
+		if (!localStorage.getItem("audioNotificationsEnabled"))
+		{
+			localStorage.setItem("audioNotificationsEnabled", "true");
+		}
+		var audioNotificationsEnabled = localStorage.getItem("audioNotificationsEnabled") == "true";
+		refreshAudioNotificationIcon();
+		$("#butToggleAudioNotifications").click(function(){ 
+			audioNotificationsEnabled = !audioNotificationsEnabled;
+			localStorage.setItem("audioNotificationsEnabled", audioNotificationsEnabled.toString()) ;
+			refreshAudioNotificationIcon();
+		});
+		function refreshAudioNotificationIcon()
+		{
+			if (audioNotificationsEnabled)
+			{
+				$("#butToggleAudioNotifications").addClass("fa-volume-up");
+				$("#butToggleAudioNotifications").removeClass("fa-volume-off");
+			}
+			else
+			{
+				$("#butToggleAudioNotifications").removeClass("fa-volume-up");
+				$("#butToggleAudioNotifications").addClass("fa-volume-off");
+			}
+		}
 		
 		function play(playDescription)
 		{
@@ -216,6 +246,8 @@
 						{
 							$("#butCheckCall").text("Call (" + message.Call + ")");
 						}
+						if (audioNotificationsEnabled)
+							$("#audioNotification")[0].play();
 						$("#playingControls").show();
 						var minBet = Math.min(message.AllIn, message.Call + message.MinRaise);
 						$("#inputBet")
@@ -314,6 +346,12 @@
 
 </head>
 <body>
+	<div id="header">
+		<i id="butToggleAudioNotifications" class="fas"></i>	<!-- actual icon class set from code -->
+		<audio id="audioNotification" style="display: none;">
+			<source src="media/ding.mp3" type="audio/mpeg"/>
+		</audio>
+	</div>
 	<div id="divPlayerName">
 		Your name:
 		<input id="inputPlayerName" />

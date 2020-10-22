@@ -105,13 +105,12 @@ namespace pmPoker
 				var buffer = new byte[1024 * 4];
 				WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
 				userName = Encoding.UTF8.GetString(buffer, 0, result.Count).ToLower();
-				RegisterSocket(userName, webSocket);
+				RegisterSocket(userName, webSocket);	// only at this point the player can start getting real-time messages
 
 				if (gameStarted)
 				{
 					logger.LogDebug($"User {userName} connected after game started. Replaying past messages for them.");
 					// send all messages so far so that the UI gets to the current point in the game
-					// TODO: guarantee that no ordinary messages are sent to userName while a replay sequence is being sent
 					await connectedSockets[userName].SendAsync(new ArraySegment<byte>(
 							Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new{ MessageType = MessageType.ReplayStart }, converter))), 
 						WebSocketMessageType.Text, true, CancellationToken.None);
