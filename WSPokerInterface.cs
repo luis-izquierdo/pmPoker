@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
@@ -28,105 +29,113 @@ namespace pmPoker
 	
     public class WSPokerInterface: IWSPokerInterface
     {
-		readonly Dictionary<string, WebSocket> connectedSockets = new Dictionary<string, WebSocket>();
 		readonly StringEnumConverter converter = new StringEnumConverter();
+		readonly ConcurrentDictionary<string, byte> connectedPlayers = new ConcurrentDictionary<string, byte>();
 		// TODO: analyze thread-safety of the following
-		private TaskCompletionSource<PokerPlay> tcs;
+		private TaskCompletionSource<PokerPlay> nextPlay;
 		private string expectingPlayFrom;
 		private CancellationTokenSource engineCancellationTokenSource;
-		private bool gameStarted;
 		private List<Tuple<string, byte[]>> messageLog;
+		private List<TaskCompletionSource<bool>> messageAvailable;
 		private readonly ILogger<WSPokerInterface> logger;
 		public WSPokerInterface(ILogger<WSPokerInterface> logger)
 		{
 			engineCancellationTokenSource = new CancellationTokenSource();
 			messageLog = new List<Tuple<string, byte[]>>();
+			messageAvailable = new List<TaskCompletionSource<bool>>{new TaskCompletionSource<bool>()};
 			this.logger = logger;
-		}
-		private void RegisterSocket(string userName, WebSocket socket)
-		{
-			lock (this)
-			{
-				connectedSockets[userName] = socket;
-			}
-		}
-		private void UnregisterSocket(string userName)
-		{
-			lock (this)
-			{
-				connectedSockets.Remove(userName);
-			}
 		}
 		public void Broadcast(object message)
 		{
-			lock (this)
-			{
-				gameStarted = true;
-				var messageJson = JsonConvert.SerializeObject(message, converter);
-				logger.LogDebug($"Broadcast({messageJson})");
-				var messageBytes = Encoding.UTF8.GetBytes(messageJson);
-				messageLog.Add(Tuple.Create((string)null, messageBytes));
-				foreach (var webSocket in connectedSockets.Values)
-				{
-					try
-					{
-						var t = webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
-					}
-					catch (Exception) {}
-				}
-			}
+			var messageJson = JsonConvert.SerializeObject(message, converter);
+			logger.LogDebug($"Broadcast({messageJson})");
+			var messageBytes = Encoding.UTF8.GetBytes(messageJson);
+			messageAvailable.Add(new TaskCompletionSource<bool>());
+			messageLog.Add(Tuple.Create((string)null, messageBytes));
+			messageAvailable[messageLog.Count - 1].SetResult(true);
 		}
 		public void SendToSinglePlayer(string userName, object message)
 		{
-			lock (this)
-			{
-				gameStarted = true;
-				var messageJson = JsonConvert.SerializeObject(message, converter);
-				logger.LogDebug($"SendToSinglePlayer({userName}, {messageJson})");
-				var messageBytes = Encoding.UTF8.GetBytes(messageJson);
-				messageLog.Add(Tuple.Create(userName, messageBytes));
-				try
-				{
-					connectedSockets[userName].SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
-				}
-				catch (Exception) {}	// TODO: logging
-			}
+			var messageJson = JsonConvert.SerializeObject(message, converter);
+			logger.LogDebug($"SendToSinglePlayer({userName}, {messageJson})");
+			var messageBytes = Encoding.UTF8.GetBytes(messageJson);
+			messageAvailable.Add(new TaskCompletionSource<bool>());
+			messageLog.Add(Tuple.Create(userName, messageBytes));
+			messageAvailable[messageLog.Count - 1].SetResult(true);
 		}
 		public string[] GetConnectedPlayers()
 		{
-			return connectedSockets.Keys.ToArray();
+			return connectedPlayers.Keys.ToArray();
 		}
 		
 		public async Task ConsumeMessages(WebSocket webSocket)
         {
 			string userName = null;
+			TaskCompletionSource<bool> webSocketDisconnected = new TaskCompletionSource<bool>();
 			try
 			{
 				var buffer = new byte[1024 * 4];
 				WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
+				if (result.CloseStatus.HasValue)
+				{
+					logger.LogError("Error receiving user name from new connection.");
+					return;
+				}
 				userName = Encoding.UTF8.GetString(buffer, 0, result.Count).ToLower();
-				RegisterSocket(userName, webSocket);	// only at this point the player can start getting real-time messages
-
-				if (gameStarted)
+				connectedPlayers.TryAdd(userName, 1);
+				var messagesDelivered = 0;
+				if (messageLog.Count > 0)
 				{
 					logger.LogDebug($"User {userName} connected after game started. Replaying past messages for them.");
 					// send all messages so far so that the UI gets to the current point in the game
-					await connectedSockets[userName].SendAsync(new ArraySegment<byte>(
+					await webSocket.SendAsync(new ArraySegment<byte>(
 							Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new{ MessageType = MessageType.ReplayStart }, converter))), 
-						WebSocketMessageType.Text, true, CancellationToken.None);
-					foreach (var t in messageLog.Where(t => t.Item1 == null || t.Item1 == userName))
+						WebSocketMessageType.Text, true, engineCancellationTokenSource.Token);
+					while (messagesDelivered < messageLog.Count)
 					{
-						try
+						await messageAvailable[messagesDelivered].Task;
+						var targetAndMessage = messageLog[messagesDelivered];
+						if (targetAndMessage.Item1 == null || targetAndMessage.Item1 == userName)
 						{
-							await connectedSockets[userName].SendAsync(new ArraySegment<byte>(t.Item2), WebSocketMessageType.Text, true, CancellationToken.None);
+							try
+							{
+								await webSocket.SendAsync(new ArraySegment<byte>(targetAndMessage.Item2), WebSocketMessageType.Text, true, engineCancellationTokenSource.Token);
+							}
+							catch (Exception ex)
+							{
+								logger.LogError(ex, $"Error re-delivering message to {userName}.");
+							}
 						}
-						catch (Exception) {}	// TODO: logging
+						messagesDelivered++;
 					}
-					await connectedSockets[userName].SendAsync(new ArraySegment<byte>(
+					await webSocket.SendAsync(new ArraySegment<byte>(
 							Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new{ MessageType = MessageType.ReplayEnd }, converter))), 
-						WebSocketMessageType.Text, true, CancellationToken.None);
+						WebSocketMessageType.Text, true, engineCancellationTokenSource.Token);
 				}
 
+				// message delivery loop
+				var sendMessages = Task.Run(async() => {
+					logger.LogDebug($"Starting message delivery loop for {userName}.");
+					while (true)
+					{
+						var t = Task.WhenAny(messageAvailable[messagesDelivered].Task, webSocketDisconnected.Task);
+						await t;
+						// if what happened was that the socket disconnected, exit the message delivery loop
+						if (t.Result == webSocketDisconnected.Task)
+							break;
+						// otherwise there should be a new outgoing message ready
+						var targetAndMessage = messageLog[messagesDelivered];
+						if (targetAndMessage.Item1 == null 			// broadcast
+							|| targetAndMessage.Item1 == userName)	// specific to this user
+						{
+							await webSocket.SendAsync(new ArraySegment<byte>(targetAndMessage.Item2), WebSocketMessageType.Text, true, engineCancellationTokenSource.Token);
+						}
+						messagesDelivered++;
+					}
+					logger.LogDebug($"Exiting message delivery loop for {userName}.");
+				});
+
+				// message reception loop
 				while (!result.CloseStatus.HasValue)
 				{
 					result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), engineCancellationTokenSource.Token);
@@ -139,49 +148,57 @@ namespace pmPoker
 					if (expectingPlayFrom == userName)
 					{
 						if (message == "fold")
-							tcs.SetResult(new PokerPlay { Type = PokerPlayType.Fold });
+							nextPlay.SetResult(new PokerPlay { Type = PokerPlayType.Fold });
 						else
-							tcs.SetResult(new PokerPlay { Type = PokerPlayType.Bet, BetAmount = int.Parse(message) });
+							nextPlay.SetResult(new PokerPlay { Type = PokerPlayType.Bet, BetAmount = int.Parse(message) });
 					}
 				}
-				if (webSocket.State != WebSocketState.Closed)
-					await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, engineCancellationTokenSource.Token);
+				webSocketDisconnected.SetResult(true);
 			}
 			catch (WebSocketException ex)
 			{
+				// this happens if a player closes its connection without proper handshake (e.g. closing the browser)
 				logger.LogError(ex, $"Error from player websocket. Player name: {userName}");
-				// this happens if a player closes its connection
-				return;
+				webSocketDisconnected.SetResult(true);	// break the message delivery loop
 			}
 			catch (OperationCanceledException)
 			{
 				logger.LogInformation("Stopping player message loop because of manual cancellation.");
-				return;
+				try
+				{
+					await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Game reset.", CancellationToken.None);
+				}
+				catch (Exception ex2)
+				{
+					logger.LogError(ex2, $"Error performing websocket closing handshake for user {userName} after game reset.");
+				}
 			}
-			finally
-			{
-				if (userName != null)
-					UnregisterSocket(userName);
-			}
+			if (userName != null)
+				connectedPlayers.TryRemove(userName, out _);
         }
 		
 		public Task<PokerPlay> PlayerNextPlay(string playerID)
 		{
 			expectingPlayFrom = playerID;
-			tcs = new TaskCompletionSource<PokerPlay>();
-			return tcs.Task;
+			nextPlay = new TaskCompletionSource<PokerPlay>();
+			return nextPlay.Task;
 		}
 
 		public void Reset()
 		{
-			foreach (var s in connectedSockets.Values)
-				s.CloseAsync(WebSocketCloseStatus.NormalClosure, "App reset by admin.", CancellationToken.None);
-			if (tcs != null)
-				tcs.TrySetCanceled();
+			if (nextPlay != null)
+				nextPlay.TrySetCanceled();
 			engineCancellationTokenSource.Cancel();
+			foreach (var m in messageAvailable)
+				m.TrySetCanceled();	// abort message sending loops
+			// TODO: consider whether the previous loop was enough to cancel outgoing messages or
+			// if new messages could have been queued at the same time...
+
+
+			// start clean for the next game
 			engineCancellationTokenSource = new CancellationTokenSource();
 			messageLog = new List<Tuple<string, byte[]>>();
-			gameStarted = false;
+			messageAvailable = new List<TaskCompletionSource<bool>>{ new TaskCompletionSource<bool>() };
 		}
 		public CancellationToken GetEngineCancellationToken()
 		{
