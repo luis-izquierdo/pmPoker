@@ -181,7 +181,6 @@
 		};
 		function socket_onclose (event) {
 			console.log("Connection closed. Code: " + event.code + ". Reason: " + event.reason);
-			clearInterval(reconnectInterval);
 		};
 		//socket.onerror = ...;		// TODO
 		function socket_onmessage (event) {

@@ -191,9 +191,6 @@ namespace pmPoker
 			engineCancellationTokenSource.Cancel();
 			foreach (var m in messageAvailable)
 				m.TrySetCanceled();	// abort message sending loops
-			// TODO: consider whether the previous loop was enough to cancel outgoing messages or
-			// if new messages could have been queued at the same time...
-
 
 			// start clean for the next game
 			engineCancellationTokenSource = new CancellationTokenSource();
