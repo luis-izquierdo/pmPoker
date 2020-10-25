@@ -139,7 +139,7 @@ namespace pmPoker
 						userInterface.Broadcast(new {
 							MessageType = MessageType.WaitingForPlay,
 							Player = players[currentPlayerIndex].PlayerID,
-							Call = highestBet - players[currentPlayerIndex].CurrentBet,
+							Call = Math.Min(highestBet - players[currentPlayerIndex].CurrentBet, players[currentPlayerIndex].Chips),
 							AllIn = players[currentPlayerIndex].Chips,
                             MinRaise = lastRaise
 						});
@@ -174,7 +174,7 @@ namespace pmPoker
                             if (players[currentPlayerIndex].CurrentBet + nextPlay.BetAmount < highestBet)
                             {
                                 // this is only allowed if the player cannot cover the largest bet and is going all-in
-                                if (players[currentPlayerIndex].Chips > highestBet)
+                                if (players[currentPlayerIndex].Chips + players[currentPlayerIndex].CurrentBet > highestBet)
                                     throw new InvalidOperationException("A player's bet must cover the largest bet unless the player is going all-in.");
                             }
                             // execute bet
