@@ -16,7 +16,12 @@
 			}, 2000);
 			
 			$("#butStartGame").click(function(){
-				$.ajax({url:"api/admin/startGame", type:"post"});
+				var initChips = $("#inputInitChips").val();
+				var split = initChips.split(",");
+				for (var i = 0; i < split.length; i++)
+					split[i] = parseInt(split[i]);
+				var data = { InitChips: split};
+				$.ajax({url:"api/admin/startGame", type:"post", contentType: "application/json", data: JSON.stringify(data)});
 			});
 			$("#butReset").click(function(){
 				$.ajax({url:"api/admin/reset", type:"post"});
@@ -27,7 +32,11 @@
 	<body>
 		<h2>Connections</h2>
 		<ul id="connectionList"></ul>
-		<div><button id="butStartGame">Start game</button></div>
+		<div>
+			<span>Initial chips:</span>
+			<input type="text" id="inputInitChips" value="5000"/>
+			<button id="butStartGame">Start game</button>
+		</div>
 		<div><button id="butReset">Reset</button></div>
 	</body>
 </html>
