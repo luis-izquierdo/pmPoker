@@ -1,0 +1,432 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>pmPoker</title>
+	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="css/all.css">
+    <style>
+		body { 
+			padding-left:0.5em;
+			background-color: black;
+			color: white;
+		}
+		#divGame
+		{
+			position: relative;
+			height: 500px;	/*TODO: adapt to viewport size*/
+		}
+		#divTable
+		{
+			position: absolute;
+			left: 20%;
+			top:20%;
+			width: 60%;
+			height:60%;
+			border-radius: 50%;
+			border: solid black 1px;
+			background-color: rgb(14, 118, 93);
+		}
+		#communityCards 
+		{
+			position: absolute;
+			left: 36%;
+			top: 41%;
+			font-size: 80%;
+		}
+		#playerCards {
+			position: absolute;
+			left: 44%;
+			bottom: 0%;
+		}
+		#playingControls
+		{
+			position: absolute;
+			right: 17%;
+			bottom: 3%;
+		}
+		.playerDiv
+		{
+			color: black;
+			position: absolute;
+			background-color: rgba(255,255,255,0.6);
+			padding: 1%;
+			border-radius: 13%;
+		}		
+		#header i
+		{
+			font-size: 120%;
+			cursor: pointer;
+		}
+		.inTurn { 
+			font-weight: bold;
+			border: solid blue 2px;
+		}
+		.folded { 
+			color:#FCC;
+			font-style: italic; 
+		}
+		#messageRibbon {background-color:darkblue;}
+		.red { color: red }
+		.black { color: black }
+		.red, .black {
+			border: solid black 1px;
+			width: 3em;
+			height: 4em;
+			border-radius: 0.5em;
+			display: inline-block;
+			margin-right: 0.5em;
+			padding-top: 0.2em;
+			padding-left: 0.2em;
+			background-color: white;
+			font-size: 130%;
+		}
+		.playerShowdownEntry{
+			margin-bottom: 0.5em;
+		}
+		.playerShowdownEntry.winner {
+			background-color: rgba(0,0,0,0.3);
+		}
+    </style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+	<script>
+	$(function(){
+		var playerName;
+		var socket;
+
+		$("#butSendPlayerName").click(function(){
+			if ($("#inputPlayerName").val().length > 0)
+			{
+				$("#divPlayerName").hide();
+				$("#divWaitingForGameStart").show();
+		
+				if (!socket || socket.readyState !== WebSocket.OPEN) {
+					alert("socket not connected");
+				}
+				playerName = $("#inputPlayerName").val().toLowerCase();
+				console.log("Client->Sender: " + playerName);
+				socket.send(playerName);
+			}
+		});
+		
+		$("#butFold").click(function(){
+			play("fold");
+		});
+
+		$("#butCheckCall").click(function(){
+			var bet = $(this).data("bet");
+			play(bet);
+		});
+
+		$("#butRaise").click(function(){
+			var playDescription = $("#inputBet").val();
+			$("#inputBet").val("");
+			play(playDescription);
+		});
+
+		$("#butCloseShowdown").click(function(){
+			$("#showdown").hide();
+			$("#showdownCards").empty();
+			$("#divGame").show();
+		});
+
+		if (!localStorage.getItem("audioNotificationsEnabled"))
+		{
+			localStorage.setItem("audioNotificationsEnabled", "true");
+		}
+		var audioNotificationsEnabled = localStorage.getItem("audioNotificationsEnabled") == "true";
+		refreshAudioNotificationIcon();
+		$("#butToggleAudioNotifications").click(function(){ 
+			audioNotificationsEnabled = !audioNotificationsEnabled;
+			localStorage.setItem("audioNotificationsEnabled", audioNotificationsEnabled.toString()) ;
+			refreshAudioNotificationIcon();
+		});
+		function refreshAudioNotificationIcon()
+		{
+			if (audioNotificationsEnabled)
+			{
+				$("#butToggleAudioNotifications").addClass("fa-volume-up");
+				$("#butToggleAudioNotifications").removeClass("fa-volume-off");
+			}
+			else
+			{
+				$("#butToggleAudioNotifications").removeClass("fa-volume-up");
+				$("#butToggleAudioNotifications").addClass("fa-volume-off");
+			}
+		}
+		
+		function play(playDescription)
+		{
+			$("#tablePlayers tr").removeClass("inTurn");
+
+			if (!socket || socket.readyState !== WebSocket.OPEN) {
+				alert("socket not connected");
+			}
+			console.log("Client->Sender: " + playDescription);
+			socket.send(playDescription);
+		}
+		
+		function showMessage(message)
+		{
+			$("#messageRibbon").text(message).show();
+			setTimeout(function(){ $("#messageRibbon").hide(); }, 5000);
+		}
+		
+		function renderCard(card)
+		{
+			var suit = card.Suit;
+			suit = suit.substr(0, suit.length - 1);	// drop the final "s"
+			var colors = {spade:"black", club:"black", heart:"red", diamond:"red"};
+			return $("<div>")
+				.addClass(colors[suit])
+				.append($("<span>").text(card.Rank))
+				.append($("<i>").addClass("fas").addClass("fa-" + suit));
+		}
+	
+		console.log("Connecting...");
+		var scheme = document.location.protocol === "https:" ? "wss" : "ws";
+        var port = document.location.port ? (":" + document.location.port) : "";
+		socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
+		socket.onopen = socket_onopen;
+		socket.onmessage = socket_onmessage;
+		socket.onclose = socket_onclose;
+		window.socket = socket;	// for debugging purposes
+
+		var reconnectInterval = setInterval(function(){
+			if (socket.readyState !== WebSocket.OPEN)
+			{
+				console.log("Reconnecting...");
+				socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
+				socket.onopen = socket_onopen;
+				socket.onmessage = socket_onmessage;
+				socket.onclose = socket_onclose;
+				window.socket = socket;	// for debugging purposes
+			}
+		}, 3000);
+		function socket_onopen(event) {
+			console.log("Connection opened");
+			if (playerName)
+			{
+				console.log("Client->Sender: " + playerName);
+				socket.send(playerName);
+			}
+		};
+		function socket_onclose (event) {
+			console.log("Connection closed. Code: " + event.code + ". Reason: " + event.reason);
+		};
+		//socket.onerror = ...;		// TODO
+		function socket_onmessage (event) {
+			console.log("Server->Client: " + event.data);
+			var message = JSON.parse(event.data);
+			switch (message.MessageType)
+			{
+				case "GameStarts": 
+					$("#divWaitingForGameStart").hide();
+					$(".playerDiv").remove();	// clear rows in case the message is received when reconnecting
+					$("#divGame").show();
+					var playerIndex = message.Players.indexOf(playerName);
+					var totalPlayers = message.Players.length;
+					var itemWidth = 12;
+					var itemHeight = 18;
+					for (var i = 0; i < message.Players.length; i++)
+					{
+						var playerDiv = $("<div>").addClass("playerDiv");
+						playerDiv.data("playerName", message.Players[i]);
+						playerDiv.css({width: itemWidth + "%", height: itemHeight + "%"});
+						playerDiv.append($("<div>").text(message.Players[i]));
+						playerDiv.append($("<div>").addClass("bet").text(0));
+						playerDiv.append($("<div>").addClass("chips").text(message.Chips[i]));
+						var indexWithRespectToCurrentPlayer = (totalPlayers + i - playerIndex) % totalPlayers;
+						var angle = 3 * Math.PI / 2 // start at 6 o'clock
+							- indexWithRespectToCurrentPlayer * 2 * Math.PI / totalPlayers;	// then rotate clockwise
+						var x = Math.cos(angle)	// -1 to 1
+								* 30			// -30 to 30
+								+ 50;			// 20 to 80;
+						x -= itemWidth / 2;
+						var y = 100 - (Math.sin(angle)
+								* 30								
+								+ 50);
+						y -= itemHeight;
+						playerDiv.css({left:x + "%", top: y + "%"});
+						$("#divGame").append(playerDiv);
+					}
+					break;
+				case "RoundStarts": 
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Dealer)
+						{
+							$(this).addClass("dealer");
+						}
+						else
+						{
+							$(this).removeClass("dealer");
+						}
+						$(this).removeClass("inTurn");
+						$(this).removeClass("folded");
+						$(this).find(".bet").text(0);
+					});
+					$("#playerCards").empty();
+					$("#communityCards").empty();
+					break;
+				case "YourCards": 
+					for (var i = 0; i < message.Cards.length; i++)
+					{
+						$("#playerCards").append(renderCard(message.Cards[i]));
+					}
+					break;
+				case "WaitingForPlay": 
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							$(this).addClass("inTurn");
+						}
+					});
+					if (message.Player == playerName)
+					{
+						$("#butCheckCall").data("bet", message.Call);
+						if (message.Call == 0)
+						{
+							$("#butCheckCall").text("Check");
+						}
+						else
+						{
+							$("#butCheckCall").text("Call (" + message.Call + ")");
+						}
+						if (audioNotificationsEnabled)
+							$("#audioNotification")[0].play();
+						$("#playingControls").show();
+						var minBet = Math.min(message.AllIn, message.Call + message.MinRaise);
+						$("#inputBet")
+							.prop("min", minBet)
+							.prop("max", message.AllIn)
+							.val(minBet);
+					}
+					break;
+				case "PlayerPlayed": 
+					$("#playingControls").hide();
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							if (message.PlayType == "Fold")
+							{
+								$(this).addClass("folded");
+							}
+							else
+							{
+								$(this).find(".bet").text(message.PlayerTotalBet);
+								$(this).find(".chips").text(message.PlayerChips);
+							}
+						}
+						$(this).removeClass("inTurn");
+					});
+					break;
+				case "CommunityCardFlipped": 
+					$("#communityCards").append(renderCard(message.Card));
+					break;
+				case "Showdown": 
+					$("#divGame").hide();
+					$("#showdownCards").empty();
+					$("#showdown").show();
+					// duplicate community cards inside the showdown panel
+					$("#showdownCards").append($("<div>").append($("#communityCards").children().clone()));
+					// now add player cards
+					for (var i = 0; i < message.PlayerCards.length; i++)
+					{
+						var cardContainer = $("<div>");
+						for (var j = 0; j < message.PlayerCards[i].Cards.length; j++)
+						{
+							cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
+						}
+						$("#showdownCards").append(
+							$("<div>")
+								.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
+								.data("playerName", message.PlayerCards[i].Player)
+								.append($("<strong>").text(message.PlayerCards[i].Player))
+								.append(cardContainer)
+						);
+					}
+					break;
+				case "RoundEnded": 
+					// showMessage(message.Players + " won " + message.Pot);
+					// in case there was a showdown...
+					$("#showdown .playerShowdownEntry").each(function(){
+						for (var i = 0; i < message.Players.length; i++)
+						{
+							if ($(this).data("playerName") == message.Players[i].Player)
+							{
+								if (message.Players[i].Won)
+								{
+									$(this).addClass("winner");
+								}
+								$(this).append($("<span>").text(message.Players[i].HandType));
+							}
+						}
+					});
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						for (var i = 0; i < message.Players.length; i++)
+							if (currentPlayerName == message.Players[i].Player)
+							{
+								$(this).find(".chips").text(message.Players[i].Chips);
+							}
+						$(this).find(".bet").text(0);	// reset current bet
+					});
+					break;
+				case "GameWinner": 
+					showMessage("Game over. The winner is " + message.Player);
+					break;
+				case "PlayerOut":
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							$(this).remove();
+						}
+					});
+					break;
+			}
+		};
+	});
+	</script>
+
+</head>
+<body>
+	<div id="header">
+		<i id="butToggleAudioNotifications" class="fas"></i>	<!-- actual icon class set from code -->
+		<audio id="audioNotification" style="display: none;">
+			<source src="media/ding.mp3" type="audio/mpeg"/>
+		</audio>
+	</div>
+	<div id="divPlayerName">
+		Your name:
+		<input id="inputPlayerName" />
+		<button id="butSendPlayerName">OK</button>
+	</div>
+	
+	<div id="divWaitingForGameStart" style="display:none">Waiting for admin to start the game...</div>
+	
+	<div id="divGame" style="display:none">
+		<div id="divTable"></div>
+		<div id="communityCards"></div>
+		<div id="playerCards"></div>
+		
+		<div id="playingControls" style="display:none">
+			<button id="butFold">Fold</button>
+			<button id="butCheckCall"></button>
+			<input id="inputBet" type="number"/>
+			<button id="butRaise" type="submit">Raise</button>
+		</div>
+	</div>
+	<div id="showdown" style="display:none">
+		<strong>Showdown</strong>
+		<div id="showdownCards">
+		</div>
+		<button id="butCloseShowdown">Close</button>
+	</div>
+	<div id="messageRibbon" style="display:none"></div>
+</body>
+</html>
