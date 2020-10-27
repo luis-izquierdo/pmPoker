@@ -24,11 +24,11 @@ namespace pmPoker.Controllers
 		}
 		
 		[HttpPost]
-		public string StartGame()
+		public string StartGame(GameStartInfo gameStartInfo)
 		{
 			var randomizerSeed = new Random().Next();
 			var t = Task.Run(() => pokerEngine.RunGame(randomizerSeed, _wsPokerInterface, _wsPokerInterface.GetConnectedPlayers(), 
-				5000,	// initial chips per player
+				index => gameStartInfo.InitChips[index % gameStartInfo.InitChips.Length],	// initial chips per player, typically the same for everybody, except for testing
 				(round) => { 
 					// small/big blind bets for each round
 					if (round < 4)
@@ -43,6 +43,11 @@ namespace pmPoker.Controllers
 				_wsPokerInterface.GetEngineCancellationToken()
 			));
 			return "OK";
+		}
+
+		public class GameStartInfo
+		{
+			public int[] InitChips { get; set; }	// passing more than one item is intended for testing only
 		}
 
 		[HttpPost]

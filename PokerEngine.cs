@@ -11,7 +11,7 @@ namespace pmPoker
     public interface IPokerEngine
     {
         Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, 
-            string[] playerIDs, int initChips, Func<int, Tuple<int,int>> getBlindBetAmounts,
+            string[] playerIDs, Func<int,int> initChipsPerPlayer, Func<int, Tuple<int,int>> getBlindBetAmounts,
             CancellationToken cancellationToken);
     }
     class PokerEngine : IPokerEngine
@@ -24,7 +24,7 @@ namespace pmPoker
             this.logger = logger;
         }
         public async Task RunGame(int cardShufflingRandomSeed, IPokerUI userInterface, 
-            string[] playerIDs, int initChips, Func<int, Tuple<int,int>> getBlindBetAmounts,
+            string[] playerIDs, Func<int,int> initChipsPerPlayer, Func<int, Tuple<int,int>> getBlindBetAmounts,
             CancellationToken cancellationToken)
         {
             if (playerIDs.Length < 2)
@@ -32,10 +32,10 @@ namespace pmPoker
 			userInterface.Broadcast(new {
 				MessageType = MessageType.GameStarts, 
 				Players = playerIDs,
-				Chips = initChips
+				Chips = playerIDs.Select((p, index) => initChipsPerPlayer(index))
 			});
 
-            var players = playerIDs.Select(p => new PlayerInfo { PlayerID = p, Chips = initChips }).ToList();
+            var players = playerIDs.Select((p, index) => new PlayerInfo { PlayerID = p, Chips = initChipsPerPlayer(index) }).ToList();
             var random = new Random(cardShufflingRandomSeed);
             var dealerIndex = -1;
             
