@@ -39,7 +39,7 @@ namespace pmPoker
             var random = new Random(cardShufflingRandomSeed);
             var dealerIndex = -1;
             
-            for (var round = 0; players.Count > 1; round++)
+            for (var hand = 0; players.Count > 1; hand++)
             {
                 foreach (var p in players)
 				{
@@ -70,13 +70,17 @@ namespace pmPoker
                 var pot = 0;
                 var smallBlindIndex = NextPlayerIndex(dealerIndex, players);
                 var bigBlindIndex = NextPlayerIndex(smallBlindIndex, players);
-                var t = getBlindBetAmounts(round);
-                var smallBlind = Math.Min(t.Item1, players[smallBlindIndex].Chips);
-                var bigBlind = Math.Min(t.Item2, players[bigBlindIndex].Chips);
-                var lastRaise = bigBlind;
-                players[smallBlindIndex].Chips -= smallBlind;
-                players[smallBlindIndex].CurrentBet = smallBlind;
-                pot += smallBlind;
+                var t = getBlindBetAmounts(hand);
+                var smallBlind = t.Item1;
+                var bigBlind = t.Item2;
+                // what the small blind and big blind players actually bet may be lower than what was set for this hand
+                // if those players don't have enough chips
+                var smallBlindPlayerBet = Math.Min(smallBlind, players[smallBlindIndex].Chips);
+                var bigBlindPlayerBet = Math.Min(bigBlind, players[bigBlindIndex].Chips);
+
+                players[smallBlindIndex].Chips -= smallBlindPlayerBet;
+                players[smallBlindIndex].CurrentBet = smallBlindPlayerBet;
+                pot += smallBlindPlayerBet;
 				userInterface.Broadcast(new {
 					MessageType = MessageType.PlayerPlayed,
 					Player = players[smallBlindIndex].PlayerID,
@@ -86,12 +90,11 @@ namespace pmPoker
 					PlayerTotalBet = players[smallBlindIndex].CurrentBet,
 					PlayerChips = players[smallBlindIndex].Chips,
 					Pot = pot,
-                    LastRaise = 0
 				});
 
-                players[bigBlindIndex].Chips -= bigBlind;
-                players[bigBlindIndex].CurrentBet = bigBlind;
-                pot += bigBlind;
+                players[bigBlindIndex].Chips -= bigBlindPlayerBet;
+                players[bigBlindIndex].CurrentBet = bigBlindPlayerBet;
+                pot += bigBlindPlayerBet;
 				userInterface.Broadcast(new {
 					MessageType = MessageType.PlayerPlayed,
 					Player = players[bigBlindIndex].PlayerID,
@@ -101,26 +104,30 @@ namespace pmPoker
 					PlayerTotalBet = players[bigBlindIndex].CurrentBet,
 					PlayerChips = players[bigBlindIndex].Chips,
 					Pot = pot,
-                    LastRaise = lastRaise
 				});
 
+                // The pre-flop round is special in that the highest bet and min raise are considered
+                // to be the expected big blind, even if the big blind player bet less because they didn't
+                // have enouth chips. Meaning that the following players in the round always need to play
+                // "as if" the big blind bet was full.
                 var highestBet = bigBlind;
-
+                var minRaise = bigBlind;
                 var currentPlayerIndex = NextPlayerIndex(bigBlindIndex, players);
                 var communityCards = new List<PlayingCard>();
                 var cardsFlippedPerRound = new[] { 0, 3, 1, 1 };
                 var playersInRound = players.Count; // amount of players who have not folded
-                for (int i = 0; i < cardsFlippedPerRound.Length && playersInRound > 1; i++) // betting rounds
+                for (int round = 0; round < cardsFlippedPerRound.Length && playersInRound > 1; round++) // betting rounds
                 {
-					if (i > 0)
+					if (round > 0)
 					{
 						await Task.Delay(2000);		// for UI purposes, so that users notice that a betting round ended and a new one started	
                     	// flip cards (first round = no flipping, second round = 3 flipped, third and fourth = 1 flipped
 
                     	// all betting rounds after the pre-flop begin with the player following the dealer
                     	currentPlayerIndex = NextPlayerIndex(dealerIndex, players);
+                        minRaise = bigBlind;
 					}
-                    for (int j = 0; j < cardsFlippedPerRound[i]; j++)
+                    for (int j = 0; j < cardsFlippedPerRound[round]; j++)
                     {
                         var communityCard = deck.Dequeue();
                         communityCards.Add(communityCard);
@@ -141,7 +148,7 @@ namespace pmPoker
 							Player = players[currentPlayerIndex].PlayerID,
 							Call = Math.Min(highestBet - players[currentPlayerIndex].CurrentBet, players[currentPlayerIndex].Chips),
 							AllIn = players[currentPlayerIndex].Chips,
-                            MinRaise = lastRaise
+                            MinRaise = minRaise
 						});
                         if (cancellationToken.IsCancellationRequested)
                             return;
@@ -185,7 +192,7 @@ namespace pmPoker
                             if (players[currentPlayerIndex].CurrentBet > highestBet)   // if this is a raise
                             {
 								playType = PlayType.Raise;
-                                lastRaise = players[currentPlayerIndex].CurrentBet - highestBet;
+                                minRaise = players[currentPlayerIndex].CurrentBet - highestBet;
                                 highestBet = players[currentPlayerIndex].CurrentBet;
                                 // everybody else who has not folded needs to play
                                 foreach (var p in players.Where(p => !p.Folded && p != players[currentPlayerIndex]))
@@ -199,7 +206,6 @@ namespace pmPoker
 								PlayerTotalBet = players[currentPlayerIndex].CurrentBet,
 								PlayerChips = players[currentPlayerIndex].Chips,
 								Pot = pot,
-                                LastRaise = lastRaise
 							});
                         }
                         currentPlayerIndex = NextPlayerIndex(currentPlayerIndex, players);
