@@ -28,7 +28,7 @@
 			border: solid black 1px;
 			background-color: rgb(14, 118, 93);
 		}
-		#communityCards 
+		#communityCards, .showdownCommunityCards 
 		{
 			position: absolute;
 			left: 36%;
@@ -82,6 +82,18 @@
 			background-color: white;
 			font-size: 130%;
 		}
+		#showdown
+		{
+			position:absolute;
+			z-index: 1;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0,0,0,0.3);
+		}
+		.showdownCards
+		{
+			position: absolute;
+		}
 		.playerShowdownEntry{
 			margin-bottom: 0.5em;
 		}
@@ -127,8 +139,7 @@
 
 		$("#butCloseShowdown").click(function(){
 			$("#showdown").hide();
-			$("#showdownCards").empty();
-			$("#divGame").show();
+			$(".showdownCards").empty();
 		});
 
 		if (!localStorage.getItem("audioNotificationsEnabled"))
@@ -250,6 +261,11 @@
 						y -= itemHeight;
 						playerDiv.css({left:x + "%", top: y + "%"});
 						$("#divGame").append(playerDiv);
+						var playerShowdownDiv = $("<div>")
+							.addClass("showdownCards")
+							.data("playerName", message.Players[i])
+							.css({top: playerDiv.position().top + playerDiv.outerHeight(), left: playerDiv.position().left});
+						$("#showdown").append(playerShowdownDiv);
 					}
 					break;
 				case "RoundStarts": 
@@ -328,11 +344,11 @@
 					$("#communityCards").append(renderCard(message.Card));
 					break;
 				case "Showdown": 
-					$("#divGame").hide();
-					$("#showdownCards").empty();
+					$(".showdownCards").empty();
+					$(".showdownCommunityCards").remove();
 					$("#showdown").show();
 					// duplicate community cards inside the showdown panel
-					$("#showdownCards").append($("<div>").append($("#communityCards").children().clone()));
+					$("#showdown").append($("<div>").addClass("showdownCommunityCards").append($("#communityCards").children().clone()));
 					// now add player cards
 					for (var i = 0; i < message.PlayerCards.length; i++)
 					{
@@ -341,13 +357,20 @@
 						{
 							cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
 						}
-						$("#showdownCards").append(
-							$("<div>")
-								.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
-								.data("playerName", message.PlayerCards[i].Player)
-								.append($("<strong>").text(message.PlayerCards[i].Player))
-								.append(cardContainer)
-						);
+						$(".showdownCards").each(function(index){
+							if ($(this).data("playerName") == message.PlayerCards[i].Player)
+							{
+								$(this).append(cardContainer);
+								return false;
+							}
+						});
+						//append(
+						//	$("<div>")
+						//		.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
+						//		.data("playerName", message.PlayerCards[i].Player)
+						//		.append($("<strong>").text(message.PlayerCards[i].Player))
+								
+						//);
 					}
 					break;
 				case "RoundEnded": 
@@ -420,12 +443,10 @@
 			<input id="inputBet" type="number"/>
 			<button id="butRaise" type="submit">Raise</button>
 		</div>
-	</div>
-	<div id="showdown" style="display:none">
-		<strong>Showdown</strong>
-		<div id="showdownCards">
+
+		<div id="showdown" style="display:none">
+			<button id="butCloseShowdown">Close</button>
 		</div>
-		<button id="butCloseShowdown">Close</button>
 	</div>
 	<div id="messageRibbon" style="display:none"></div>
 </body>
