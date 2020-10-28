@@ -98,7 +98,7 @@
 			margin-bottom: 0.5em;
 		}
 		.playerShowdownEntry.winner {
-			background-color: rgba(0,0,0,0.3);
+			background-color: rgba(235, 125, 0, 0.4);
 		}
     </style>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -352,7 +352,9 @@
 					// now add player cards
 					for (var i = 0; i < message.PlayerCards.length; i++)
 					{
-						var cardContainer = $("<div>");
+						var cardContainer = $("<div>")
+							.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
+							.data("playerName", message.PlayerCards[i].Player)
 						for (var j = 0; j < message.PlayerCards[i].Cards.length; j++)
 						{
 							cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
@@ -364,13 +366,6 @@
 								return false;
 							}
 						});
-						//append(
-						//	$("<div>")
-						//		.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
-						//		.data("playerName", message.PlayerCards[i].Player)
-						//		.append($("<strong>").text(message.PlayerCards[i].Player))
-								
-						//);
 					}
 					break;
 				case "RoundEnded": 
@@ -385,7 +380,7 @@
 								{
 									$(this).addClass("winner");
 								}
-								$(this).append($("<span>").text(message.Players[i].HandType));
+								$(this).append($("<div>").text(message.Players[i].HandType));
 							}
 						}
 					});
