@@ -8,14 +8,29 @@
 	<link rel="stylesheet" href="css/all.css">
     <style>
 		body { 
-			padding-left:0.5em;
 			background-color: black;
 			color: white;
 		}
 		#divGame
 		{
 			position: relative;
-			height: 500px;	/*TODO: adapt to viewport size*/
+			margin: auto;
+			/*
+			w/h ratio = r
+			if (vw >= vh * r)
+			{
+				h = vh;
+				w = vh * r;
+			}
+			else
+			{
+				w = vw;
+				h = vw / r;
+			}
+			*/
+			width: min(100vw, calc(100vh * 2));
+			height: min(100vh, calc(100vw / 2));
+			font-size: min(3vh, 1.5vw);
 		}
 		#divTable
 		{
@@ -54,6 +69,13 @@
 			padding: 1%;
 			border-radius: 13%;
 		}		
+		#header
+		{
+			position:absolute;
+			top: 2%;
+			left: 2%;
+			z-index: 1;
+		}
 		#header i
 		{
 			font-size: 120%;
