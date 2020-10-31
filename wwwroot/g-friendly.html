@@ -1,0 +1,561 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>pmPoker</title>
+	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="css/all.css">
+    <style>
+		body { 
+			background-color: black;
+			color: white;
+		}
+		#divPlayerName
+		{
+			margin-top: 3%;
+		}
+		#divGame
+		{
+			position: relative;
+			margin: auto;
+			/*
+			w/h ratio = r
+			if (vw >= vh * r)
+			{
+				h = vh;
+				w = vh * r;
+			}
+			else
+			{
+				w = vw;
+				h = vw / r;
+			}
+			*/
+			width: min(100vw, calc(100vh * 2));
+			height: min(100vh, calc(100vw / 2));
+			font-size: min(3vh, 1.5vw);
+		}
+		#divTable
+		{
+			position: absolute;
+			left: 20%;
+			top:20%;
+			width: 60%;
+			height:60%;
+			border-radius: 50%;
+			border: solid black 1px;
+			background-color: rgb(14, 118, 93);
+		}
+		#communityCards, .showdownCommunityCards 
+		{
+			position: absolute;
+			left: 36%;
+			top: 41%;
+			font-size: 80%;
+		}
+		#playerCards {
+			position: absolute;
+			left: 44%;
+			bottom: 0%;
+		}
+		#playingControls
+		{
+			position: absolute;
+			right: 17%;
+			bottom: 3%;
+		}
+		.playerDiv
+		{
+			color: black;
+			position: absolute;
+			background-color: rgba(255,255,255,0.6);
+			padding: 0.5%;
+			border-radius: 13%;
+		}
+		.playerDiv .dealerMark
+		{
+			float: right;
+			width: 24%;
+			border-style: solid;
+			border-width: 1pt;
+			border-radius: 50%;
+			text-align: center;
+			display: none;
+			font-family: serif;
+			font-weight: bold;
+			background-color: forestgreen;
+		}
+		.playerDiv.dealer .dealerMark
+		{
+			display: block;
+		}
+		#header
+		{
+			position:absolute;
+			top: 2%;
+			left: 2%;
+			height: 4.5%;
+			z-index: 1;
+		}
+		#header i
+		{
+			font-size: 120%;
+			cursor: pointer;
+		}
+
+		@keyframes animateBorder
+		{
+			0% { border-color: transparent }
+			50% { border-color: white }
+			100% { border-color: transparent }
+		}
+
+		.inTurn { 
+			border-width: 0.3em;
+			border-style: solid;
+			animation-name: animateBorder;
+			animation-duration: 1s;
+			animation-iteration-count: infinite;
+		}
+		.folded { 
+			color:#FCC;
+			font-style: italic; 
+		}
+		#messageRibbon {background-color:darkblue;}
+		.red { color: red }
+		.black { color: black }
+		.red, .black {
+			border: solid black 1px;
+			width: 3em;
+			height: 4em;
+			border-radius: 0.5em;
+			display: inline-block;
+			margin-right: 0.5em;
+			padding-top: 0.2em;
+			padding-left: 0.2em;
+			background-color: white;
+			font-size: 130%;
+		}
+		#showdown
+		{
+			position:absolute;
+			z-index: 1;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0,0,0,0.3);
+		}
+		.showdownCards
+		{
+			position: absolute;
+		}
+		.playerShowdownEntry{
+			margin-bottom: 0.5em;
+		}
+		.playerShowdownEntry.winner {
+			background-color: rgba(235, 125, 0, 0.4);
+		}
+    </style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+	<script>
+	$(function(){
+		var playerName;
+		var socket;
+
+		$("#butSendPlayerName").click(function(){
+			if ($("#inputPlayerName").val().length > 0)
+			{
+				$("#divPlayerName").hide();
+				$("#divWaitingForGameStart").show();
+		
+				if (!socket || socket.readyState !== WebSocket.OPEN) {
+					alert("socket not connected");
+				}
+				playerName = $("#inputPlayerName").val().toLowerCase();
+				console.log("Client->Sender: " + playerName);
+				socket.send(playerName);
+			}
+		});
+		
+		$("#butFold").click(function(){
+			play("fold");
+		});
+
+		$("#butCheckCall").click(function(){
+			var bet = $(this).data("bet");
+			play(bet);
+		});
+
+		$("#butRaise").click(function(){
+			var playDescription = $("#inputBet").val();
+			$("#inputBet").val("");
+			play(playDescription);
+		});
+
+		$("#butCloseShowdown").click(function(){
+			$("#showdown").hide();
+			$(".showdownCards").empty();
+		});
+
+		if (!localStorage.getItem("audioNotificationsEnabled"))
+		{
+			localStorage.setItem("audioNotificationsEnabled", "true");
+		}
+		var audioNotificationsEnabled = localStorage.getItem("audioNotificationsEnabled") == "true";
+		refreshAudioNotificationIcon();
+		$("#butToggleAudioNotifications").click(function(){ 
+			audioNotificationsEnabled = !audioNotificationsEnabled;
+			localStorage.setItem("audioNotificationsEnabled", audioNotificationsEnabled.toString()) ;
+			refreshAudioNotificationIcon();
+		});
+		function refreshAudioNotificationIcon()
+		{
+			if (audioNotificationsEnabled)
+			{
+				$("#butToggleAudioNotifications").addClass("fa-volume-up");
+				$("#butToggleAudioNotifications").removeClass("fa-volume-off");
+			}
+			else
+			{
+				$("#butToggleAudioNotifications").removeClass("fa-volume-up");
+				$("#butToggleAudioNotifications").addClass("fa-volume-off");
+			}
+		}
+
+		var fullscreen = false;
+		refreshFullscreenIcon();
+		$("#butToggleFullscreen").click(function(){
+			fullscreen = !fullscreen;
+			refreshFullscreenIcon();
+			if (fullscreen)
+				openFullscreen();
+			else
+				closeFullscreen();
+		});
+		function refreshFullscreenIcon()
+		{
+			if (fullscreen)
+			{
+				$("#butToggleFullscreen").addClass("fa-compress-alt");
+				$("#butToggleFullscreen").removeClass("fa-expand-alt");
+			}
+			else
+			{
+				$("#butToggleFullscreen").removeClass("fa-compress-alt");
+				$("#butToggleFullscreen").addClass("fa-expand-alt");
+			}
+		}
+		
+		function play(playDescription)
+		{
+			$(".playerDiv").removeClass("inTurn");
+
+			if (!socket || socket.readyState !== WebSocket.OPEN) {
+				alert("socket not connected");
+			}
+			console.log("Client->Sender: " + playDescription);
+			socket.send(playDescription);
+		}
+		
+		function showMessage(message)
+		{
+			$("#messageRibbon").text(message).show();
+			setTimeout(function(){ $("#messageRibbon").hide(); }, 5000);
+		}
+		
+		function renderCard(card)
+		{
+			var suit = card.Suit;
+			suit = suit.substr(0, suit.length - 1);	// drop the final "s"
+			var colors = {spade:"black", club:"black", heart:"red", diamond:"red"};
+			return $("<div>")
+				.addClass(colors[suit])
+				.append($("<span>").text(card.Rank))
+				.append($("<i>").addClass("fas").addClass("fa-" + suit));
+		}
+		/* Get the documentElement (<html>) to display the page in fullscreen */
+		var elem = document.documentElement;
+
+		/* View in fullscreen */
+		function openFullscreen() {
+		  if (elem.requestFullscreen) {
+		    elem.requestFullscreen();
+		  } else if (elem.webkitRequestFullscreen) { /* Safari */
+		    elem.webkitRequestFullscreen();
+		  } else if (elem.msRequestFullscreen) { /* IE11 */
+		    elem.msRequestFullscreen();
+		  }
+		}
+
+		/* Close fullscreen */
+		function closeFullscreen() {
+		  if (document.exitFullscreen) {
+		    document.exitFullscreen();
+		  } else if (document.webkitExitFullscreen) { /* Safari */
+		    document.webkitExitFullscreen();
+		  } else if (document.msExitFullscreen) { /* IE11 */
+		    document.msExitFullscreen();
+		  }
+		}
+	
+		console.log("Connecting...");
+		var scheme = document.location.protocol === "https:" ? "wss" : "ws";
+        var port = document.location.port ? (":" + document.location.port) : "";
+		socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
+		socket.onopen = socket_onopen;
+		socket.onmessage = socket_onmessage;
+		socket.onclose = socket_onclose;
+		window.socket = socket;	// for debugging purposes
+
+		var reconnectInterval = setInterval(function(){
+			if (socket.readyState !== WebSocket.OPEN)
+			{
+				console.log("Reconnecting...");
+				socket = new WebSocket(scheme + "://" + document.location.hostname + port + "/ws");
+				socket.onopen = socket_onopen;
+				socket.onmessage = socket_onmessage;
+				socket.onclose = socket_onclose;
+				window.socket = socket;	// for debugging purposes
+			}
+		}, 3000);
+		function socket_onopen(event) {
+			console.log("Connection opened");
+			if (playerName)
+			{
+				console.log("Client->Sender: " + playerName);
+				socket.send(playerName);
+			}
+		};
+		function socket_onclose (event) {
+			console.log("Connection closed. Code: " + event.code + ". Reason: " + event.reason);
+		};
+		//socket.onerror = ...;		// TODO
+		function socket_onmessage (event) {
+			console.log("Server->Client: " + event.data);
+			var message = JSON.parse(event.data);
+			switch (message.MessageType)
+			{
+				case "GameStarts": 
+					$("#divWaitingForGameStart").hide();
+					$(".playerDiv").remove();	// clear rows in case the message is received when reconnecting
+					$("#divGame").show();
+					var playerIndex = message.Players.indexOf(playerName);
+					var totalPlayers = message.Players.length;
+					var itemWidth = 12;
+					var itemHeight = 18;
+					for (var i = 0; i < message.Players.length; i++)
+					{
+						var playerDiv = $("<div>").addClass("playerDiv");
+						playerDiv.data("playerName", message.Players[i]);
+						playerDiv.css({width: itemWidth + "%", height: itemHeight + "%"});
+						playerDiv.append($("<div>").addClass("dealerMark").text("D"));
+						playerDiv.append($("<strong>").text(message.Players[i]));
+						playerDiv.append($("<div>")
+							.append($("<span>").text("Bet: "))
+							.append($("<span>").addClass("bet").text(0))
+						);
+						playerDiv.append($("<div>")
+							.append($("<span>").text("Chips: "))
+							.append($("<span>").addClass("chips").text(message.Chips[i]))
+						);
+						var indexWithRespectToCurrentPlayer = (totalPlayers + i - playerIndex) % totalPlayers;
+						var angle = 3 * Math.PI / 2 // start at 6 o'clock
+							- indexWithRespectToCurrentPlayer * 2 * Math.PI / totalPlayers;	// then rotate clockwise
+						var x = Math.cos(angle)	// -1 to 1
+								* 30			// -30 to 30
+								+ 50;			// 20 to 80;
+						x -= itemWidth / 2;
+						var y = 100 - (Math.sin(angle)
+								* 30								
+								+ 50);
+						y -= itemHeight;
+						playerDiv.css({left:x + "%", top: y + "%"});
+						$("#divGame").append(playerDiv);
+						var playerShowdownDiv = $("<div>")
+							.addClass("showdownCards")
+							.data("playerName", message.Players[i])
+							.css({top: playerDiv.position().top + playerDiv.outerHeight(), left: playerDiv.position().left});
+						$("#showdown").append(playerShowdownDiv);
+					}
+					break;
+				case "RoundStarts": 
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Dealer)
+						{
+							$(this).addClass("dealer");
+						}
+						else
+						{
+							$(this).removeClass("dealer");
+						}
+						$(this).removeClass("inTurn");
+						$(this).removeClass("folded");
+						$(this).find(".bet").text(0);
+					});
+					$("#playerCards").empty();
+					$("#communityCards").empty();
+					break;
+				case "YourCards": 
+					for (var i = 0; i < message.Cards.length; i++)
+					{
+						$("#playerCards").append(renderCard(message.Cards[i]));
+					}
+					break;
+				case "WaitingForPlay": 
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							void $(this)[0].offsetWidth;
+							$(this).addClass("inTurn");
+						}
+					});
+					if (message.Player == playerName)
+					{
+						$("#butCheckCall").data("bet", message.Call);
+						if (message.Call == 0)
+						{
+							$("#butCheckCall").text("Check");
+						}
+						else
+						{
+							$("#butCheckCall").text("Call (" + message.Call + ")");
+						}
+						if (audioNotificationsEnabled)
+							$("#audioNotification")[0].play();
+						$("#playingControls").show();
+						var minBet = Math.min(message.AllIn, message.Call + message.MinRaise);
+						$("#inputBet")
+							.prop("min", minBet)
+							.prop("max", message.AllIn)
+							.val(minBet);
+					}
+					break;
+				case "PlayerPlayed": 
+					$("#playingControls").hide();
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							if (message.PlayType == "Fold")
+							{
+								$(this).addClass("folded");
+							}
+							else
+							{
+								$(this).find(".bet").text(message.PlayerTotalBet);
+								$(this).find(".chips").text(message.PlayerChips);
+							}
+						}
+						$(this).removeClass("inTurn");
+					});
+					break;
+				case "CommunityCardFlipped": 
+					$("#communityCards").append(renderCard(message.Card));
+					break;
+				case "Showdown": 
+					$(".showdownCards").empty();
+					$(".showdownCommunityCards").remove();
+					$("#showdown").show();
+					// duplicate community cards inside the showdown panel
+					$("#showdown").append($("<div>").addClass("showdownCommunityCards").append($("#communityCards").children().clone()));
+					// now add player cards
+					for (var i = 0; i < message.PlayerCards.length; i++)
+					{
+						var cardContainer = $("<div>")
+							.addClass("playerShowdownEntry")	// so that we can highlight the winner when the following message arrives
+							.data("playerName", message.PlayerCards[i].Player)
+						for (var j = 0; j < message.PlayerCards[i].Cards.length; j++)
+						{
+							cardContainer.append(renderCard(message.PlayerCards[i].Cards[j]));
+						}
+						$(".showdownCards").each(function(index){
+							if ($(this).data("playerName") == message.PlayerCards[i].Player)
+							{
+								$(this).append(cardContainer);
+								return false;
+							}
+						});
+					}
+					break;
+				case "RoundEnded": 
+					// showMessage(message.Players + " won " + message.Pot);
+					// in case there was a showdown...
+					$("#showdown .playerShowdownEntry").each(function(){
+						for (var i = 0; i < message.Players.length; i++)
+						{
+							if ($(this).data("playerName") == message.Players[i].Player)
+							{
+								if (message.Players[i].Won)
+								{
+									$(this).addClass("winner");
+								}
+								$(this).append($("<div>").text(message.Players[i].HandType));
+							}
+						}
+					});
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						for (var i = 0; i < message.Players.length; i++)
+							if (currentPlayerName == message.Players[i].Player)
+							{
+								$(this).find(".chips").text(message.Players[i].Chips);
+							}
+						$(this).find(".bet").text(0);	// reset current bet
+					});
+					break;
+				case "GameWinner": 
+					showMessage("Game over. The winner is " + message.Player);
+					break;
+				case "PlayerOut":
+					$(".playerDiv").each(function(){
+						var currentPlayerName = $(this).data("playerName");
+						if (currentPlayerName == message.Player)
+						{
+							$(this).remove();
+						}
+					});
+					break;
+			}
+		};
+	});
+	</script>
+
+</head>
+<body>
+	<div id="header">
+		<i id="butToggleAudioNotifications" class="fas"></i>	<!-- actual icon class set from code -->
+		&nbsp;
+		<i id="butToggleFullscreen" class="fas"></i>
+		<audio id="audioNotification" style="display: none;">
+			<source src="media/ding.mp3" type="audio/mpeg"/>
+		</audio>
+	</div>
+	<div id="divPlayerName">
+		Your name:
+		<input id="inputPlayerName" />
+		<button id="butSendPlayerName">OK</button>
+	</div>
+	
+	<div id="divWaitingForGameStart" style="display:none">Waiting for admin to start the game...</div>
+	
+	<div id="divGame" style="display:none">
+		<div id="divTable"></div>
+		<div id="communityCards"></div>
+		<div id="playerCards"></div>
+		
+		<div id="playingControls" style="display:none">
+			<button id="butFold">Fold</button>
+			<button id="butCheckCall"></button>
+			<input id="inputBet" type="number"/>
+			<button id="butRaise" type="submit">Raise</button>
+		</div>
+
+		<div id="showdown" style="display:none">
+			<button id="butCloseShowdown">Close</button>
+		</div>
+	</div>
+	<div id="messageRibbon" style="display:none"></div>
+</body>
+</html>
