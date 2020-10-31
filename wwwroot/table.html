@@ -81,9 +81,20 @@
 			font-size: 120%;
 			cursor: pointer;
 		}
+
+		@keyframes animateBorder
+		{
+			0% { border-color: transparent }
+			50% { border-color: white }
+			100% { border-color: transparent }
+		}
+
 		.inTurn { 
-			font-weight: bold;
-			border: solid blue 2px;
+			border-width: 0.3em;
+			border-style: solid;
+			animation-name: animateBorder;
+			animation-duration: 1s;
+			animation-iteration-count: infinite;
 		}
 		.folded { 
 			color:#FCC;
@@ -191,7 +202,7 @@
 		
 		function play(playDescription)
 		{
-			$("#tablePlayers tr").removeClass("inTurn");
+			$(".playerDiv").removeClass("inTurn");
 
 			if (!socket || socket.readyState !== WebSocket.OPEN) {
 				alert("socket not connected");
@@ -267,7 +278,7 @@
 						var playerDiv = $("<div>").addClass("playerDiv");
 						playerDiv.data("playerName", message.Players[i]);
 						playerDiv.css({width: itemWidth + "%", height: itemHeight + "%"});
-						playerDiv.append($("<div>").text(message.Players[i]));
+						playerDiv.append($("<strong>").text(message.Players[i]));
 						playerDiv.append($("<div>").addClass("bet").text(0));
 						playerDiv.append($("<div>").addClass("chips").text(message.Chips[i]));
 						var indexWithRespectToCurrentPlayer = (totalPlayers + i - playerIndex) % totalPlayers;
@@ -319,6 +330,7 @@
 						var currentPlayerName = $(this).data("playerName");
 						if (currentPlayerName == message.Player)
 						{
+							void $(this)[0].offsetWidth;
 							$(this).addClass("inTurn");
 						}
 					});
