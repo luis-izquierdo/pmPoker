@@ -66,9 +66,26 @@
 			color: black;
 			position: absolute;
 			background-color: rgba(255,255,255,0.6);
-			padding: 1%;
+			padding: 0.5%;
 			border-radius: 13%;
-		}		
+		}
+		.playerDiv .dealerMark
+		{
+			float: right;
+			width: 24%;
+			border-style: solid;
+			border-width: 1pt;
+			border-radius: 50%;
+			text-align: center;
+			display: none;
+			font-family: serif;
+			font-weight: bold;
+			background-color: forestgreen;
+		}
+		.playerDiv.dealer .dealerMark
+		{
+			display: block;
+		}
 		#header
 		{
 			position:absolute;
@@ -278,9 +295,16 @@
 						var playerDiv = $("<div>").addClass("playerDiv");
 						playerDiv.data("playerName", message.Players[i]);
 						playerDiv.css({width: itemWidth + "%", height: itemHeight + "%"});
+						playerDiv.append($("<div>").addClass("dealerMark").text("D"));
 						playerDiv.append($("<strong>").text(message.Players[i]));
-						playerDiv.append($("<div>").addClass("bet").text(0));
-						playerDiv.append($("<div>").addClass("chips").text(message.Chips[i]));
+						playerDiv.append($("<div>")
+							.append($("<span>").text("Bet: "))
+							.append($("<span>").addClass("bet").text(0))
+						);
+						playerDiv.append($("<div>")
+							.append($("<span>").text("Chips: "))
+							.append($("<span>").addClass("chips").text(message.Chips[i]))
+						);
 						var indexWithRespectToCurrentPlayer = (totalPlayers + i - playerIndex) % totalPlayers;
 						var angle = 3 * Math.PI / 2 // start at 6 o'clock
 							- indexWithRespectToCurrentPlayer * 2 * Math.PI / totalPlayers;	// then rotate clockwise
