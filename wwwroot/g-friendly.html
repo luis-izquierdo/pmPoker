@@ -374,7 +374,7 @@
 						var playerShowdownDiv = $("<div>")
 							.addClass("showdownCards")
 							.data("playerName", message.Players[i])
-							.css({top: playerDiv.position().top + playerDiv.outerHeight(), left: playerDiv.position().left});
+							.css({left: x + "%", top: (y + itemHeight) + "%"});
 						$("#showdown").append(playerShowdownDiv);
 					}
 					break;
